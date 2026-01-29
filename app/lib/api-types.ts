@@ -65,7 +65,7 @@ export type ContentPayload = ContentPayloadV2;
 export type DailyContentResponse = {
   date: string;
   cohort: string;
-  resolvedFrom: "admin" | "evergreen" | "none" | null;
+  resolvedFrom: "admin" | "common" | "evergreen" | "none" | null;
   status: ContentStatus | null; // currently always treated as "published" if null
   category: string | null;
   priority: string | null;

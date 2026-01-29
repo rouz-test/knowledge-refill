@@ -8,18 +8,7 @@ import {
   upsertAdminContent,
 } from "@/app/lib/admin-store.server";
 
-function requireAdmin(req: Request) {
-  const token = req.headers.get("x-admin-token") ?? "";
-  const expected = process.env.ADMIN_TOKEN ?? "";
-  if (!expected) return true; // dev 편의: env 없으면 통과
-  return token === expected;
-}
-
 export async function GET(req: Request) {
-  if (!requireAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "";
   if (mode === "dates") {
@@ -64,10 +53,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!requireAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  // Auth is enforced by middleware + signed HttpOnly cookie; no header token required.
   const body = (await req.json()) as UpsertAdminContentRequest;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(body?.date ?? "")) {
@@ -83,8 +69,9 @@ export async function POST(req: Request) {
   const normalizedContent = (() => {
     if ((body.content as any).sections) {
       const s = (body.content as any).sections;
+      const { status: _ignoredStatus, ...rest } = (body.content as any) ?? {};
       return {
-        title: (body.content as any).title,
+        title: rest.title,
         sections: {
           past: typeof s.past === "string" ? s.past : "",
           change: typeof s.change === "string" ? s.change : "",
@@ -94,12 +81,13 @@ export async function POST(req: Request) {
     }
 
     if (typeof (body.content as any).body === "string") {
+      const { status: _ignoredStatus, ...rest } = (body.content as any) ?? {};
       return {
-        title: (body.content as any).title,
+        title: rest.title,
         sections: {
           past: "",
           change: "",
-          detail: (body.content as any).body,
+          detail: String(rest.body ?? ""),
         },
       };
     }
@@ -123,10 +111,6 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!requireAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const url = new URL(req.url);
   const date = url.searchParams.get("date") ?? "";
   const cohort = url.searchParams.get("cohort") ?? "";

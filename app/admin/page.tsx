@@ -43,7 +43,6 @@ export default function AdminPage() {
   const view = (sp.get("view") ?? "list") as "list" | "new" | "edit";
   const viewDate = sp.get("date") ?? "";
   const viewCohort = sp.get("cohort") ?? "";
-  const [token, setToken] = useState(""); // ADMIN_TOKEN을 쓰는 경우에만 필요
   const [date, setDate] = useState(ymdTodayKST());
   const [cohort, setCohort] = useState<"common" | string>("common");
   const [title, setTitle] = useState("");
@@ -134,7 +133,6 @@ export default function AdminPage() {
       const qs = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
       const res = await fetch(`/api/admin/contents?${qs.toString()}`, {
         method: "GET",
-        headers,
         cache: "no-store",
       });
       if (!res.ok) {
@@ -162,7 +160,6 @@ export default function AdminPage() {
       const qs = new URLSearchParams({ mode: "dates" });
       const res = await fetch(`/api/admin/contents?${qs.toString()}`, {
         method: "GET",
-        headers,
         cache: "no-store",
       });
       if (!res.ok) return;
@@ -181,7 +178,6 @@ export default function AdminPage() {
       const qs = new URLSearchParams({ date: dateYMD, cohort: cohortValue });
       const res = await fetch(`/api/admin/contents?${qs.toString()}`, {
         method: "GET",
-        headers,
         cache: "no-store",
       });
 
@@ -263,7 +259,6 @@ export default function AdminPage() {
         const qs = new URLSearchParams({ date, cohort });
         const res = await fetch(`/api/admin/contents?${qs.toString()}`, {
           method: "GET",
-          headers,
           cache: "no-store",
         });
         if (!res.ok) {
@@ -294,11 +289,7 @@ export default function AdminPage() {
     return base;
   }, [cohort]);
 
-  const headers = useMemo(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token.trim()) h["x-admin-token"] = token.trim();
-    return h;
-  }, [token]);
+  const jsonHeaders = useMemo(() => ({ "Content-Type": "application/json" }), []);
 
   function goList() {
     router.push("/admin");
@@ -345,7 +336,7 @@ export default function AdminPage() {
       confirmBypassRef.current = false;
       const res = await fetch("/api/admin/contents", {
         method: "POST",
-        headers,
+        headers: jsonHeaders,
         body: JSON.stringify({
           date,
           cohort,
@@ -383,7 +374,6 @@ export default function AdminPage() {
       const qs = new URLSearchParams({ date, cohort });
       const res = await fetch(`/api/admin/contents?${qs.toString()}`, {
         method: "DELETE",
-        headers,
       });
 
       if (!res.ok) {
@@ -759,15 +749,6 @@ export default function AdminPage() {
 
 
           <div style={{ display: "grid", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>관리자 토큰 (선택)</span>
-              <input
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="ADMIN_TOKEN을 설정한 경우 입력"
-                style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
-              />
-            </label>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <label style={{ display: "grid", gap: 6 }}>

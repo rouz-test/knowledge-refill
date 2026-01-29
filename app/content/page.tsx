@@ -220,20 +220,21 @@ async function fetchDailyFromApi(date: string, cohort: string): Promise<{
     });
     if (!res.ok) return null;
     const data = (await res.json()) as any;
+    const payload = data?.ok === true ? data.data : null;
 
-    const c = (data?.content ?? null) as AdminContent | null;
+    const c = (payload?.content ?? null) as AdminContent | null;
 
-    // The daily API returns badge fields at the top-level (category/priority).
+    // The daily API returns badge fields at the data-level (category/priority).
     // The UI expects them on the content object, so merge them in for rendering & hashing.
     if (c && typeof c === "object") {
       const anyC = c as any;
-      if (anyC.category == null && data?.category != null) anyC.category = data.category;
-      if (anyC.priority == null && data?.priority != null) anyC.priority = data.priority;
+      if (anyC.category == null && payload?.category != null) anyC.category = payload.category;
+      if (anyC.priority == null && payload?.priority != null) anyC.priority = payload.priority;
     }
 
     return {
       content: c,
-      resolvedFrom: (data?.resolvedFrom ?? null) as string | null,
+      resolvedFrom: (payload?.resolvedFrom ?? null) as string | null,
     };
   } catch {
     return null;
@@ -1121,6 +1122,7 @@ export default function ContentPage() {
   const [forceEmptyUI, setForceEmptyUI] = useState(false);
   const searchParams = useSearchParams();
   const urlDate = searchParams.get("date");
+  const urlCohort = searchParams.get("cohort");
   const forceServer = searchParams.get("forceServer") === "1";
   // Reminder settings (stored locally; laer used by native wrapper for local notifications)
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1168,6 +1170,14 @@ export default function ContentPage() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(urlDate)) return;
     setSelectedDate(urlDate);
   }, [urlDate]);
+
+  // Allow admin preview links to set cohort: /content?date=...&cohort=1990s
+  useEffect(() => {
+    if (!urlCohort) return;
+    // basic validation: allow letters/numbers and dashes (e.g., "common", "1990s")
+    if (!/^[A-Za-z0-9-]+$/.test(urlCohort)) return;
+    setViewCohortKey(urlCohort);
+  }, [urlCohort]);
 
   const emptyMessage = useMemo(() => {
     return EMPTY_MESSAGES[Math.floor(Math.random() * EMPTY_MESSAGES.length)];
@@ -1301,9 +1311,15 @@ export default function ContentPage() {
     //    However, if the cached bundle is empty (content:null), or if it's "today",
     //    still try the server API in the background so admin updates can appear without manual invalidation.
     const cached = readBundle(selectedDate, activeCohort);
+
+    // For rare corrections, allow a background refresh for recent past dates too.
+    // diffDaysYMD(selectedDate, todayYMD) is (today - selected) in days.
+    const daysAgo = diffDaysYMD(selectedDate, todayYMD);
+    const isRecentPast = daysAgo >= 0 && daysAgo <= 7;
+
     const shouldBackgroundRefresh =
       !forceServer &&
-      (!!cached && (cached.content === null || selectedDate === todayYMD));
+      (!!cached && (cached.content === null || selectedDate === todayYMD || isRecentPast));
 
     if (cached && !forceServer) {
       setBundle(cached);
@@ -1316,7 +1332,7 @@ export default function ContentPage() {
     (async () => {
       // If we already used a cached non-empty bundle and we're not forcing server,
       // skip the API call.
-      if (!forceServer && cached && cached.content !== null && selectedDate !== todayYMD) {
+      if (!forceServer && cached && cached.content !== null && selectedDate !== todayYMD && !isRecentPast) {
         return;
       }
       const api = await fetchDailyFromApi(selectedDate, activeCohort);
