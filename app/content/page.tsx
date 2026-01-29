@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { birthYearToCohort, pickTodayContent } from "../lib/content";
 import type { AdminContent, Cohort } from "../data/adminContents";
+import { AdSlot } from "../components/ad/AdSlot";
+import { getPromoForReadAction } from "../components/ad/providers/promo";
 
 function WheelColumn(props: {
   value: number;
@@ -1118,6 +1120,8 @@ export default function ContentPage() {
   const [isRead, setIsRead] = useState<boolean>(false);
   const [weekReadMap, setWeekReadMap] = useState<Record<string, boolean>>({});
   const [viewCohortKey, setViewCohortKey] = useState<string | null>(null);
+  const [adOpen, setAdOpen] = useState(false);
+  const [adResult, setAdResult] = useState<ReturnType<typeof getPromoForReadAction> | null>(null);
   // DEV only: 빈 상태 UI 강제 미리보기 (?forceEmpty=1)
   const [forceEmptyUI, setForceEmptyUI] = useState(false);
   const searchParams = useSearchParams();
@@ -1581,6 +1585,10 @@ export default function ContentPage() {
                 }
                 setIsRead(true);
                 setWeekReadMap((m) => ({ ...m, [selectedDate]: true }));
+                // show promo ad after read
+                const r = getPromoForReadAction();
+                setAdResult(r);
+                setAdOpen(true);
               }}
               className={[
                 "w-14 h-14 rounded-full shadow-lg active:scale-95 transition flex items-center justify-center",
@@ -1658,6 +1666,14 @@ export default function ContentPage() {
         value={activeCohort ?? ""}
         myCohort={cohortKey}
         onPick={(v) => setViewCohortKey(v)}
+      />
+      <AdSlot
+        open={adOpen}
+        result={adResult}
+        onClose={() => {
+          setAdOpen(false);
+          setAdResult(null);
+        }}
       />
     </div>
   );
