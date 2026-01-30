@@ -17,6 +17,7 @@ function docId(date: string, cohort: string) {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "";
+  const allowLegacy = url.searchParams.get("legacy") === "1";
   if (mode === "dates") {
     // Firestore-first: return distinct dates that have content (optionally filtered by cohort)
     try {
@@ -45,8 +46,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, source: "firestore", dates });
     } catch (e) {
       console.error("[admin contents] firestore dates list failed", e);
-      const dates = await listAdminContentDates();
-      return NextResponse.json({ ok: true, source: "legacy", dates });
+      if (allowLegacy) {
+        const dates = await listAdminContentDates();
+        return NextResponse.json({ ok: true, source: "legacy", dates });
+      }
+      return NextResponse.json(
+        { ok: false, source: "firestore", error: "Firestore dates query failed" },
+        { status: 500 }
+      );
     }
   }
 
@@ -58,7 +65,7 @@ export async function GET(req: Request) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ error: "Invalid date" }, { status: 400 });
     }
-    // Firestore-first (source of truth), then fallback to legacy local store
+    // Firestore-first (source of truth). Legacy is only allowed with `?legacy=1`.
     try {
       const db = getDb();
       const snap = await db.collection("dailyContents").doc(docId(date, cohort)).get();
@@ -85,12 +92,24 @@ export async function GET(req: Request) {
         };
         return NextResponse.json({ ok: true, source: "firestore", data });
       }
+
+      // Not found in Firestore
+      if (allowLegacy) {
+        const row = await getAdminContent(date, cohort);
+        return NextResponse.json({ ok: true, source: "legacy", data: row });
+      }
+      return NextResponse.json({ ok: true, source: "firestore", data: null });
     } catch (e) {
       console.error("[admin contents] firestore read failed", e);
+      if (allowLegacy) {
+        const row = await getAdminContent(date, cohort);
+        return NextResponse.json({ ok: true, source: "legacy", data: row });
+      }
+      return NextResponse.json(
+        { ok: false, source: "firestore", error: "Firestore read failed" },
+        { status: 500 }
+      );
     }
-
-    const row = await getAdminContent(date, cohort);
-    return NextResponse.json({ ok: true, source: "legacy", data: row });
   }
 
   // 목록 조회 (테이블) - server-side pagination
@@ -159,18 +178,30 @@ export async function GET(req: Request) {
   } catch (e) {
     console.error("[admin contents] firestore paged list failed", e);
 
-    const { items: rows, total } = await listAdminContentsPaged({ cohort, start, end, limit, offset });
+    if (allowLegacy) {
+      const { items: rows, total } = await listAdminContentsPaged({ cohort, start, end, limit, offset });
 
-    const items = rows.map((r) => ({
-      date: r.date,
-      cohort: r.cohort,
-      title: r.content?.title ?? null,
-      category: (r as any).category ?? null,
-      priority: (r as any).priority ?? null,
-      updatedAt: r.updatedAt ?? null,
-    }));
+      const items = rows.map((r) => ({
+        date: r.date,
+        cohort: r.cohort,
+        title: r.content?.title ?? null,
+        category: (r as any).category ?? null,
+        priority: (r as any).priority ?? null,
+        updatedAt: r.updatedAt ?? null,
+      }));
 
-    return NextResponse.json({ ok: true, source: "legacy", items, total });
+      return NextResponse.json({ ok: true, source: "legacy", items, total });
+    }
+
+    const msg =
+      process.env.NODE_ENV !== "production"
+        ? String((e as any)?.message ?? e)
+        : "Firestore list query failed";
+
+    return NextResponse.json(
+      { ok: false, source: "firestore", error: msg },
+      { status: 500 }
+    );
   }
 }
 
