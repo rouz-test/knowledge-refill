@@ -16,6 +16,7 @@ export function AdSlot({
   autoHideMs?: number;
 }) {
   const [visible, setVisible] = useState(false);
+  const effectiveAutoHideMs = autoHideMs ?? 6000;
 
   // When opened, animate in.
   useEffect(() => {
@@ -27,19 +28,24 @@ export function AdSlot({
     setVisible(false);
   }, [open, result]);
 
-  // Optional auto-hide timer
+  // Optional auto-hide timer (defaults to 6s when not provided)
   useEffect(() => {
     if (!open || !result) return;
-    if (!autoHideMs) return;
+    if (!effectiveAutoHideMs || effectiveAutoHideMs <= 0) return;
+
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const t = setTimeout(() => {
       setVisible(false);
-      // allow animation to finish
-      setTimeout(() => onClose(), 180);
-    }, autoHideMs);
+      // allow animation to finish before closing
+      closeTimer = setTimeout(() => onClose(), 180);
+    }, effectiveAutoHideMs);
 
-    return () => clearTimeout(t);
-  }, [open, result, autoHideMs, onClose]);
+    return () => {
+      clearTimeout(t);
+      if (closeTimer) clearTimeout(closeTimer);
+    };
+  }, [open, result, effectiveAutoHideMs, onClose]);
 
   const content = useMemo(() => {
     if (!result) return null;
@@ -66,11 +72,11 @@ export function AdSlot({
   if (!open || !result) return null;
 
   return (
-    <div className="pointer-events-none fixed left-0 right-0 bottom-3 z-50 px-3">
+    <div className="pointer-events-none fixed left-0 right-0 top-3 z-50 px-3">
       <div
         className={
           "mx-auto w-full max-w-3xl transform transition-all duration-200 " +
-          (visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0")
+          (visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0")
         }
       >
         {content}

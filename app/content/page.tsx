@@ -1,4 +1,4 @@
-// 1) Add "use client" and imports at the very top:
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,6 +7,48 @@ import { birthYearToCohort, pickTodayContent } from "../lib/content";
 import type { AdminContent, Cohort } from "../data/adminContents";
 import { AdSlot } from "../components/ad/AdSlot";
 import { getPromoForReadAction } from "../components/ad/providers/promo";
+
+// RingBurstButton: Visual ring burst for button celebration effect
+function RingBurstButton({ trigger }: { trigger: boolean }) {
+  if (!trigger) return null;
+  return (
+    <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <span className="btnRing" />
+      <span className="btnRing btnRing2" />
+      <style jsx>{`
+        .btnRing {
+          position: absolute;
+          width: 96px;
+          height: 96px;
+          border-radius: 9999px;
+          border: 2px solid rgba(168, 85, 247, 0.7);
+          opacity: 0;
+          transform: scale(0.6);
+          animation: btnRing 520ms ease-out forwards;
+        }
+        .btnRing2 {
+          width: 128px;
+          height: 128px;
+          border-color: rgba(216, 180, 254, 0.45);
+          animation-delay: 70ms;
+        }
+        @keyframes btnRing {
+          0% {
+            opacity: 0;
+            transform: scale(0.55);
+          }
+          20% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.35);
+          }
+        }
+      `}</style>
+    </span>
+  );
+}
 
 function WheelColumn(props: {
   value: number;
@@ -639,6 +681,51 @@ function ContentView({ c }: { c: AdminContent }) {
   );
 }
 
+function ReadCelebrationOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-6">
+      {/* click-anywhere to close */}
+      <button
+        className="absolute inset-0 bg-black/45"
+        onClick={onClose}
+        aria-label="읽음 축하 닫기"
+      />
+
+      <div className="celebrateCard relative pointer-events-none w-full max-w-[420px] rounded-3xl border border-purple-500/25 bg-gradient-to-b from-slate-900/95 to-slate-950/90 p-6 text-center shadow-2xl shadow-black/40 ring-1 ring-white/5">
+        {/* Only text and pop animation, no rings */}
+        <div className="text-3xl">🎉</div>
+        <div className="mt-2 text-lg font-extrabold text-white">읽음 처리 완료!</div>
+        <div className="mt-1 text-sm text-purple-200/80">
+          오늘의 한 줄을 챙기셨네요. 내일도 이어가보세요.
+        </div>
+      </div>
+
+      <style jsx>{`
+        .celebrateCard {
+          transform: translateY(6px) scale(0.985);
+          opacity: 0;
+          animation: popIn 220ms ease-out forwards;
+        }
+        @keyframes popIn {
+          0% {
+            opacity: 0;
+            transform: translateY(10px) scale(0.97);
+          }
+          60% {
+            opacity: 1;
+            transform: translateY(0px) scale(1.02);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0px) scale(1);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 function WeeklyCalendar(props: {
   days: Date[];
@@ -1138,6 +1225,7 @@ export default function ContentPage() {
   const [viewCohortKey, setViewCohortKey] = useState<string | null>(null);
   const [adOpen, setAdOpen] = useState(false);
   const [adResult, setAdResult] = useState<ReturnType<typeof getPromoForReadAction> | null>(null);
+  const [celebrateOpen, setCelebrateOpen] = useState(false);
   // DEV only: 빈 상태 UI 강제 미리보기 (?forceEmpty=1)
   const [forceEmptyUI, setForceEmptyUI] = useState(false);
   const searchParams = useSearchParams();
@@ -1490,7 +1578,7 @@ export default function ContentPage() {
         <div className="max-w-3xl mx-auto px-5 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-purple-200 text-sm">오늘의 지식 리필</div>
+              <div className="text-purple-200 text-sm">오늘의 지식조각</div>
               <div className="mt-1 text-purple-300 text-xs">{selectedDate}</div>
             </div>
 
@@ -1593,13 +1681,21 @@ export default function ContentPage() {
                 }
                 setIsRead(true);
                 setWeekReadMap((m) => ({ ...m, [selectedDate]: true }));
-                // show promo ad after read
+
+                // celebration overlay
+                setCelebrateOpen(true);
+                setTimeout(() => setCelebrateOpen(false), 950);
+
+                // show promo ad shortly after (to avoid visual clash)
                 const r = getPromoForReadAction();
-                setAdResult(r);
-                setAdOpen(true);
+                setTimeout(() => {
+                  setAdResult(r);
+                  setAdOpen(true);
+                }, 650);
               }}
               className={[
                 "w-14 h-14 rounded-full shadow-lg active:scale-95 transition flex items-center justify-center",
+                "relative", // Ensure relative for ring burst positioning
                 readDisabled
                   ? "bg-slate-800 border border-slate-600"
                   : "bg-gradient-to-br from-purple-600 to-purple-900 shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/50",
@@ -1608,22 +1704,25 @@ export default function ContentPage() {
               aria-label={readTitle}
               disabled={readDisabled}
             >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M20 6L9 17L4 12"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <span className="relative inline-flex items-center justify-center">
+                <RingBurstButton trigger={celebrateOpen} />
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M20 6L9 17L4 12"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
             </button>
           </div>
 
@@ -1675,6 +1774,7 @@ export default function ContentPage() {
         myCohort={cohortKey}
         onPick={(v) => setViewCohortKey(v)}
       />
+      <ReadCelebrationOverlay open={celebrateOpen} onClose={() => setCelebrateOpen(false)} />
       <AdSlot
         open={adOpen}
         result={adResult}
