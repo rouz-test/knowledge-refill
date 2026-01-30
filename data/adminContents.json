@@ -101,5 +101,22 @@
       "contentVersion": 2
     },
     "updatedAt": "2026-01-29T06:44:18.742Z"
+  },
+  {
+    "date": "2026-01-30",
+    "cohort": "common",
+    "category": "파이어베이스",
+    "priority": "high",
+    "status": "published",
+    "content": {
+      "title": "제목",
+      "sections": {
+        "past": "과거 테스트",
+        "change": "현재 테스트",
+        "detail": "상세 테스트"
+      },
+      "contentVersion": 2
+    },
+    "updatedAt": "2026-01-30T07:24:15.129Z"
   }
 ]

@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { resolveDailyContent } from "@/app/lib/admin-store.server";
+import { getDb } from "@/app/lib/firebase.server";
+import { doc, getDoc } from "firebase/firestore";
 import type { ContentPayload, DailyContentResponse } from "@/app/lib/api-types";
 
 function isYMD(s: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function docId(date: string, cohort: string) {
+  return `${date}__${cohort}`;
 }
 
 function normalizePayload(input: any): ContentPayload {
@@ -41,7 +47,43 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Missing cohort" }, { status: 400 });
   }
 
-  const resolved = await resolveDailyContent(date, cohort);
+  // 1) Firestore-first (server source of truth)
+  let resolved: any = null;
+  try {
+    const db = getDb();
+    const ref = doc(db, "dailyContents", docId(date, cohort));
+    const snap = await getDoc(ref);
+
+    if (snap.exists()) {
+      const d = snap.data() as any;
+      resolved = {
+        resolvedFrom: "firestore",
+        category: d.category ?? null,
+        priority: d.priority ?? null,
+        status: d.status ?? "published",
+        // accept either {title, sections:{...}, sources?} or flattened fields
+        content: d.content ?? {
+          title: d.title,
+          sections: d.sections ?? { past: d.past ?? "", change: d.change ?? "", detail: d.detail ?? "" },
+          ...(Array.isArray(d.sources) ? { sources: d.sources } : {}),
+        },
+        updatedAt:
+          typeof d.updatedAt === "string"
+            ? d.updatedAt
+            : d.updatedAt?.toDate
+              ? d.updatedAt.toDate().toISOString()
+              : null,
+      };
+    }
+  } catch (e) {
+    // Firestore unavailable or misconfigured — fall back to existing resolver.
+    console.error("[daily content] firestore read failed", e);
+  }
+
+  // 2) Fallback: existing local/admin-store resolver
+  if (!resolved) {
+    resolved = await resolveDailyContent(date, cohort);
+  }
 
   const resp: DailyContentResponse = {
     date,
