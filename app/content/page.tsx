@@ -169,6 +169,23 @@ function normalizeSections(c: AdminContent): { past: string; change: string; det
   };
 }
 
+function hasMeaningfulContent(c: AdminContent | null): boolean {
+  if (!c) return false;
+  const a = c as any;
+  const s = normalizeSections(c);
+
+  const hasSections = !!(s.past?.trim() || s.change?.trim() || s.detail?.trim());
+  const hasLegacyBody = !!(
+    (typeof a.body === "string" && a.body.trim()) ||
+    (typeof a.currentContent === "string" && a.currentContent.trim()) ||
+    (typeof a.detail === "string" && a.detail.trim())
+  );
+  const hasTitle = typeof a.title === "string" && a.title.trim().length > 0;
+
+  // Consider it meaningful only if there is at least some real text to show.
+  return hasSections || hasLegacyBody || hasTitle;
+}
+
 function makeContentId(date: string, cohort: string, c: AdminContent): string {
   const a = c as any;
   const sec = normalizeSections(c);
@@ -220,6 +237,11 @@ async function fetchDailyFromApi(date: string, cohort: string): Promise<{
       headers: { "accept": "application/json" },
       cache: "no-store",
     });
+    // If the API uses 404 to mean “no content for this date/cohort”,
+    // treat it as a valid empty response (so we show EmptyState, not local fallback).
+    if (res.status === 404) {
+      return { content: null, resolvedFrom: null };
+    }
     if (!res.ok) return null;
     const data = (await res.json()) as any;
     const payload = data?.ok === true ? data.data : null;
@@ -247,17 +269,11 @@ function getOrCreateBundle(date: string, cohort: string): DailyBundle {
   const cached = readBundle(date, cohort);
   if (cached) return cached;
 
-  const picked = pickTodayContent({ date, cohort: cohort as any });
-  if (!picked) {
-    const empty: DailyBundle = { date, cohort, contentId: null, content: null };
-    writeBundle(empty);
-    return empty;
-  }
-
-  const id = makeContentId(date, cohort, picked);
-  const b: DailyBundle = { date, cohort, contentId: id, content: picked };
-  writeBundle(b);
-  return b;
+  // IMPORTANT: Do not auto-generate placeholder content for missing days.
+  // Missing days should render EmptyState, not the 3-step template with “(내용 없음)”.
+  const empty: DailyBundle = { date, cohort, contentId: null, content: null };
+  writeBundle(empty);
+  return empty;
 }
 
 // ------------------- localStorage cleanup policy -------------------
@@ -1346,13 +1362,11 @@ export default function ContentPage() {
       if (api) {
         const c = api.content;
         if (!c) {
-          // If server has no content, do NOT clobber an existing non-empty bundle during background refresh.
-          // Only write empty when forcing server OR when there is no cached content.
-          if (forceServer || !cached || cached.content === null) {
-            const empty: DailyBundle = { date: selectedDate, cohort: activeCohort, contentId: null, content: null };
-            writeBundle(empty);
-            if (!cancelled) setBundle(empty);
-          }
+          // API says there is no content for this date/cohort.
+          // Always reflect that as an empty bundle so the UI shows EmptyState.
+          const empty: DailyBundle = { date: selectedDate, cohort: activeCohort, contentId: null, content: null };
+          writeBundle(empty);
+          if (!cancelled) setBundle(empty);
           return;
         }
 
@@ -1364,21 +1378,15 @@ export default function ContentPage() {
         return;
       }
 
-      // fallback: local picker
-      const picked = pickTodayContent({ date: selectedDate, cohort: activeCohort as any });
-      if (!picked) {
-        // forceServer=1: overwrite any existing local bundle snapshot
-        const empty: DailyBundle = { date: selectedDate, cohort: activeCohort, contentId: null, content: null };
-        writeBundle(empty);
-        if (!cancelled) setBundle(empty);
+      // fallback: if server call failed, keep cached when available, otherwise show empty
+      if (!forceServer && cached) {
+        if (!cancelled) setBundle(cached);
         return;
       }
 
-      const id = makeContentId(selectedDate, activeCohort, picked);
-      // forceServer=1: overwrite any existing local bundle snapshot
-      const b: DailyBundle = { date: selectedDate, cohort: activeCohort, contentId: id, content: picked };
-      writeBundle(b);
-      if (!cancelled) setBundle(b);
+      const empty: DailyBundle = { date: selectedDate, cohort: activeCohort, contentId: null, content: null };
+      writeBundle(empty);
+      if (!cancelled) setBundle(empty);
     })();
 
     return () => {
@@ -1546,7 +1554,7 @@ export default function ContentPage() {
       {/* Body */}
       <main className="max-w-3xl mx-auto px-5 py-6 pb-28">
         <div className={["transition-opacity duration-150", isFading ? "opacity-0" : "opacity-100"].join(" ")}>
-        {displayContent ? (
+        {displayContent && hasMeaningfulContent(displayContent) ? (
           <ContentView c={displayContent} />
         ) : (
           <EmptyState message={emptyMessage} ymd={selectedDate} />
