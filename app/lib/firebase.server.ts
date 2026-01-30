@@ -1,28 +1,25 @@
 // app/lib/firebase.server.ts
 import "server-only";
 
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getApps, initializeApp, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-function getFirebaseConfig() {
-  const cfg = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  };
+function getAdminCredential() {
+  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
-  // 최소 안전장치: 빠진 값이 있으면 바로 에러로 알려주기
-  for (const [k, v] of Object.entries(cfg)) {
-    if (!v) throw new Error(`Missing Firebase env: ${k}`);
-  }
+  if (!projectId) throw new Error("Missing Firebase env: FIREBASE_ADMIN_PROJECT_ID");
+  if (!clientEmail) throw new Error("Missing Firebase env: FIREBASE_ADMIN_CLIENT_EMAIL");
+  if (!privateKeyRaw) throw new Error("Missing Firebase env: FIREBASE_ADMIN_PRIVATE_KEY");
 
-  return cfg;
+  // `.env.local`에서 보통 `\n` 형태로 들어오므로 실제 줄바꿈으로 복원
+  const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
+
+  return cert({ projectId, clientEmail, privateKey });
 }
 
 export function getDb() {
-  const app = getApps().length ? getApps()[0] : initializeApp(getFirebaseConfig());
+  const app = getApps().length ? getApps()[0] : initializeApp({ credential: getAdminCredential() });
   return getFirestore(app);
 }

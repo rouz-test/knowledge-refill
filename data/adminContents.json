@@ -105,18 +105,35 @@
   {
     "date": "2026-01-30",
     "cohort": "common",
-    "category": "파이어베이스",
-    "priority": "high",
+    "category": "firebase",
+    "priority": null,
     "status": "published",
     "content": {
-      "title": "제목",
+      "title": "변경된 컨텐츠",
       "sections": {
-        "past": "과거 테스트",
-        "change": "현재 테스트",
-        "detail": "상세 테스트"
+        "past": "확인용입니다",
+        "change": "확인해야죠",
+        "detail": "확인할겁니다"
       },
       "contentVersion": 2
     },
-    "updatedAt": "2026-01-30T07:24:15.129Z"
+    "updatedAt": "2026-01-30T07:47:48.303Z"
+  },
+  {
+    "date": "2026-01-31",
+    "cohort": "common",
+    "category": "파이어베이스",
+    "priority": null,
+    "status": "published",
+    "content": {
+      "title": "31일자 테스트입니다.",
+      "sections": {
+        "past": "테스트입니다",
+        "change": "파이어베이스여",
+        "detail": "나에게 오라"
+      },
+      "contentVersion": 2
+    },
+    "updatedAt": "2026-01-30T07:51:26.895Z"
   }
 ]

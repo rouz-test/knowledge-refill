@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveDailyContent } from "@/app/lib/admin-store.server";
 import { getDb } from "@/app/lib/firebase.server";
-import { doc, getDoc } from "firebase/firestore";
 import type { ContentPayload, DailyContentResponse } from "@/app/lib/api-types";
 
 function isYMD(s: string) {
@@ -51,10 +50,9 @@ export async function GET(req: Request) {
   let resolved: any = null;
   try {
     const db = getDb();
-    const ref = doc(db, "dailyContents", docId(date, cohort));
-    const snap = await getDoc(ref);
+    const snap = await db.collection("dailyContents").doc(docId(date, cohort)).get();
 
-    if (snap.exists()) {
+    if (snap.exists) {
       const d = snap.data() as any;
       resolved = {
         resolvedFrom: "firestore",

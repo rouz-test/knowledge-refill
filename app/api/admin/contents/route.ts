@@ -8,7 +8,7 @@ import {
   upsertAdminContent,
 } from "@/app/lib/admin-store.server";
 import { getDb } from "@/app/lib/firebase.server";
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { FieldValue } from "firebase-admin/firestore";
 
 function docId(date: string, cohort: string) {
   return `${date}__${cohort}`;
@@ -18,8 +18,36 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "";
   if (mode === "dates") {
-    const dates = await listAdminContentDates();
-    return NextResponse.json({ ok: true, dates });
+    // Firestore-first: return distinct dates that have content (optionally filtered by cohort)
+    try {
+      const db = getDb();
+      const cohortParam = url.searchParams.get("cohort") ?? "";
+
+      let q: FirebaseFirestore.Query = db.collection("dailyContents");
+      if (cohortParam) {
+        q = q.where("cohort", "==", cohortParam);
+      }
+
+      // date is YYYY-MM-DD string; lexicographic order works
+      q = q.orderBy("date", "desc").select("date").limit(730);
+
+      const snap = await q.get();
+      const seen = new Set<string>();
+      const dates: string[] = [];
+      for (const d of snap.docs) {
+        const v = d.get("date");
+        if (typeof v === "string" && !seen.has(v)) {
+          seen.add(v);
+          dates.push(v);
+        }
+      }
+
+      return NextResponse.json({ ok: true, source: "firestore", dates });
+    } catch (e) {
+      console.error("[admin contents] firestore dates list failed", e);
+      const dates = await listAdminContentDates();
+      return NextResponse.json({ ok: true, source: "legacy", dates });
+    }
   }
 
   const date = url.searchParams.get("date") ?? "";
@@ -33,9 +61,8 @@ export async function GET(req: Request) {
     // Firestore-first (source of truth), then fallback to legacy local store
     try {
       const db = getDb();
-      const ref = doc(db, "dailyContents", docId(date, cohort));
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
+      const snap = await db.collection("dailyContents").doc(docId(date, cohort)).get();
+      if (snap.exists) {
         const d = snap.data() as any;
         const data = {
           date,
@@ -56,14 +83,14 @@ export async function GET(req: Request) {
                 ? d.updatedAt.toDate().toISOString()
                 : null,
         };
-        return NextResponse.json({ ok: true, data });
+        return NextResponse.json({ ok: true, source: "firestore", data });
       }
     } catch (e) {
       console.error("[admin contents] firestore read failed", e);
     }
 
     const row = await getAdminContent(date, cohort);
-    return NextResponse.json({ ok: true, data: row });
+    return NextResponse.json({ ok: true, source: "legacy", data: row });
   }
 
   // 목록 조회 (테이블) - server-side pagination
@@ -76,18 +103,75 @@ export async function GET(req: Request) {
   const offsetRaw = Number(url.searchParams.get("offset") ?? "0");
   const offset = Math.max(0, Number.isFinite(offsetRaw) ? offsetRaw : 0);
 
-  const { items: rows, total } = await listAdminContentsPaged({ cohort, start, end, limit, offset });
+  // Firestore-first list (server-side pagination). Falls back to legacy local store on failure.
+  try {
+    const db = getDb();
 
-  const items = rows.map((r) => ({
-    date: r.date,
-    cohort: r.cohort,
-    title: r.content?.title ?? null,
-    category: (r as any).category ?? null,
-    priority: (r as any).priority ?? null,
-    updatedAt: r.updatedAt ?? null,
-  }));
+    let q: FirebaseFirestore.Query = db.collection("dailyContents");
 
-  return NextResponse.json({ ok: true, items, total });
+    if (cohort) {
+      q = q.where("cohort", "==", cohort);
+    }
+
+    // date is stored as YYYY-MM-DD string; range filtering works lexicographically
+    if (start) {
+      q = q.where("date", ">=", start);
+    }
+    if (end) {
+      q = q.where("date", "<=", end);
+    }
+
+    // Order first, then paginate
+    q = q.orderBy("date", "desc");
+
+    // Total count (best effort)
+    let total = 0;
+    try {
+      const countSnap = await (q as any).count().get();
+      total = Number(countSnap?.data?.().count ?? 0);
+    } catch {
+      // If count aggregation is unavailable, keep total as 0 (admin UI can still show items)
+      total = 0;
+    }
+
+    const snap = await q.offset(offset).limit(limit).get();
+
+    const items = snap.docs.map((d) => {
+      const v = d.data() as any;
+      const updatedAt =
+        typeof v.updatedAt === "string"
+          ? v.updatedAt
+          : v.updatedAt?.toDate
+            ? v.updatedAt.toDate().toISOString()
+            : null;
+
+      return {
+        date: v.date ?? null,
+        cohort: v.cohort ?? null,
+        title: v.content?.title ?? v.title ?? null,
+        category: v.category ?? null,
+        priority: v.priority ?? null,
+        updatedAt,
+      };
+    });
+
+    return NextResponse.json({ ok: true, source: "firestore", items, total });
+  } catch (e) {
+    console.error("[admin contents] firestore paged list failed", e);
+
+    const { items: rows, total } = await listAdminContentsPaged({ cohort, start, end, limit, offset });
+
+    const items = rows.map((r) => ({
+      date: r.date,
+      cohort: r.cohort,
+      title: r.content?.title ?? null,
+      category: (r as any).category ?? null,
+      priority: (r as any).priority ?? null,
+      updatedAt: r.updatedAt ?? null,
+    }));
+
+    return NextResponse.json({ ok: true, source: "legacy", items, total });
+  }
 }
 
 export async function POST(req: Request) {
@@ -148,26 +232,27 @@ export async function POST(req: Request) {
   // Dual-write to Firestore so user-facing API can read from the server source of truth.
   try {
     const db = getDb();
-    const ref = doc(db, "dailyContents", docId(body.date, body.cohort));
-    await setDoc(
-      ref,
-      {
-        date: body.date,
-        cohort: body.cohort,
-        status: (saved as any)?.status ?? "published",
-        category: body.category ?? null,
-        priority: body.priority ?? null,
-        // Store in the v2-friendly shape
-        title: normalizedContent.title ?? null,
-        sections: normalizedContent.sections ?? { past: "", change: "", detail: "" },
-        content: {
+    await db
+      .collection("dailyContents")
+      .doc(docId(body.date, body.cohort))
+      .set(
+        {
+          date: body.date,
+          cohort: body.cohort,
+          status: (saved as any)?.status ?? "published",
+          category: body.category ?? null,
+          priority: body.priority ?? null,
+          // Store in the v2-friendly shape
           title: normalizedContent.title ?? null,
           sections: normalizedContent.sections ?? { past: "", change: "", detail: "" },
+          content: {
+            title: normalizedContent.title ?? null,
+            sections: normalizedContent.sections ?? { past: "", change: "", detail: "" },
+          },
+          updatedAt: FieldValue.serverTimestamp(),
         },
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+        { merge: true }
+      );
   } catch (e) {
     console.error("[admin contents] firestore write failed", e);
   }
@@ -192,8 +277,7 @@ export async function DELETE(req: Request) {
   // Best-effort delete in Firestore
   try {
     const db = getDb();
-    const ref = doc(db, "dailyContents", docId(date, cohort));
-    await deleteDoc(ref);
+    await db.collection("dailyContents").doc(docId(date, cohort)).delete();
   } catch (e) {
     console.error("[admin contents] firestore delete failed", e);
   }
