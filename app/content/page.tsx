@@ -1597,29 +1597,20 @@ export default function ContentPage() {
                 title={reminderEnabled ? `설정 · 리마인드 ${reminderTime}` : "설정 · 리마인드 꺼짐"}
               >
                 <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
                   xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  className="text-purple-100/90"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="size-6"
                 >
                   <path
-                    d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                  />
-                  <path
-                    d="M19.4 15a7.97 7.97 0 0 0 .1-6l1.6-1.2-1.9-3.3-1.9.8a8.05 8.05 0 0 0-5.2-2.3L11 1h-2l-.1 2a8.05 8.05 0 0 0-5.2 2.3l-1.9-.8L-.1 7.8 1.5 9a7.97 7.97 0 0 0 .1 6L-.1 16.2l1.9 3.3 1.9-.8a8.05 8.05 0 0 0 5.2 2.3l.1 2h2l.1-2a8.05 8.05 0 0 0 5.2-2.3l1.9.8 1.9-3.3-1.6-1.2Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
                   />
                 </svg>
+
               </button>
             </div>
           </div>
