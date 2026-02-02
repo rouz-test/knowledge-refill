@@ -24,6 +24,7 @@ export default function SplashPage() {
     <main
       style={{
         height: "100vh",
+        position: "relative",
         display: "grid",
         placeItems: "center",
         padding: 24,
@@ -102,6 +103,20 @@ export default function SplashPage() {
         >
           쌓는 중…
         </div>
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 18,
+          textAlign: "center",
+          fontSize: 11,
+          letterSpacing: 0.3,
+          opacity: 0.35,
+        }}
+      >
+        © {new Date().getFullYear()} rouz. All rights reserved.
       </div>
       <style jsx>{`
         /* Logo (circle bowl + dots) */

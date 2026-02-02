@@ -7,6 +7,9 @@ import { birthYearToCohort, pickTodayContent } from "../lib/content";
 import type { AdminContent, Cohort } from "../data/adminContents";
 import { AdSlot } from "../components/ad/AdSlot";
 import { getPromoForReadAction } from "../components/ad/providers/promo";
+import { SettingsModal } from "./_components/SettingsModal";
+import { ServiceDocModal, type DocTab } from "./_components/ServiceDocModal";
+import { CohortPickerModal } from "./_components/CohortPickerModal";
 
 // RingBurstButton: Visual ring burst for button celebration effect
 function RingBurstButton({ trigger }: { trigger: boolean }) {
@@ -973,248 +976,7 @@ function WeeklyCalendar(props: {
   );
 }
 
-function SettingsModal(props: {
-  open: boolean;
-  onClose: () => void;
-  enabled: boolean;
-  time: string;
-  onChangeEnabled: (v: boolean) => void;
-  onChangeTime: (v: string) => void;
-}) {
-  const { open, onClose, enabled, time, onChangeEnabled, onChangeTime } = props;
-  if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center p-5">
-      <button
-        className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
-        onClick={onClose}
-        aria-label="설정 닫기"
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative w-full max-w-[380px] rounded-2xl border border-purple-500/35 bg-gradient-to-b from-slate-900/95 to-slate-950/90 p-5 shadow-2xl shadow-black/30 ring-1 ring-white/5"
-      >
-        <div className="flex items-center justify-between">
-          <div className="font-bold">설정</div>
-          <button
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-slate-200/90 hover:text-white hover:bg-white/10"
-            aria-label="닫기"
-            title="닫기"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mt-5 space-y-4">
-          {/* Reminder toggle */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-purple-100">매일 리마인드</div>
-              <div className="mt-1 text-xs text-slate-300/80">원하는 시간에 앱을 열어보도록 알려드려요.</div>
-            </div>
-
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enabled}
-              onClick={() => onChangeEnabled(!enabled)}
-              className={[
-                "relative inline-flex h-6 w-11 items-center rounded-full transition",
-                enabled ? "bg-purple-600" : "bg-slate-700",
-              ].join(" ")}
-            >
-              <span
-                className={[
-                  "inline-block h-4 w-4 transform rounded-full bg-white transition",
-                  enabled ? "translate-x-6" : "translate-x-1",
-                ].join(" ")}
-              />
-            </button>
-          </div>
-
-          {/* Time wheel picker */}
-          <div className={enabled ? "" : "opacity-40"}>
-            <div className="text-xs text-slate-300 mb-2">알림 시간</div>
-            {(() => {
-              const { h, m } = splitTime(time);
-              const hours = Array.from({ length: 24 }, (_, i) => i);
-              const minutes = Array.from({ length: 60 }, (_, i) => i);
-
-              return (
-                <div className="grid grid-cols-2 gap-3">
-                  <WheelColumn
-                    value={h}
-                    values={hours}
-                    disabled={!enabled}
-                    suffix="시"
-                    onChange={(nextH) => onChangeTime(composeTime(nextH, m))}
-                  />
-                  <WheelColumn
-                    value={m}
-                    values={minutes}
-                    disabled={!enabled}
-                    suffix="분"
-                    onChange={(nextM) => onChangeTime(composeTime(h, nextM))}
-                  />
-                </div>
-              );
-            })()}
-          </div>
-
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full rounded-xl border border-purple-500/30 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CohortPickerModal(props: {
-  open: boolean;
-  onClose: () => void;
-  options: string[];
-  value: string;
-  myCohort: string | null;
-  onPick: (v: string) => void;
-}) {
-  const { open, onClose, options, value, myCohort, onPick } = props;
-
-  // --- PATCH: refs/state/effects for scroll & animation ---
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const selectedRef = useRef<HTMLButtonElement | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  // mount animation
-  useEffect(() => {
-    setMounted(false);
-    const id = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(id);
-  }, [open]);
-
-  // center the currently selected item when opening
-  useEffect(() => {
-    if (!open) return;
-    const t = setTimeout(() => {
-      try {
-        selectedRef.current?.scrollIntoView({ block: "center", inline: "nearest" });
-      } catch {
-        // ignore
-      }
-    }, 0);
-    return () => clearTimeout(t);
-  }, [open, value, options]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center p-5">
-      <button
-        className={[
-          "absolute inset-0 backdrop-blur-[1px] transition-opacity duration-150",
-          mounted ? "bg-black/35 opacity-100" : "bg-black/0 opacity-0",
-        ].join(" ")}
-        onClick={onClose}
-        aria-label="연도대 선택 닫기"
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={[
-          "relative w-full max-w-[380px] rounded-2xl border border-purple-500/35",
-          "bg-gradient-to-b from-slate-900/95 to-slate-950/90 p-5",
-          "shadow-2xl shadow-black/30 ring-1 ring-white/5",
-          "transform-gpu transition-all duration-150",
-          mounted ? "opacity-100 scale-100" : "opacity-0 scale-[0.98]",
-        ].join(" ")}
-      >
-        <div className="flex items-center justify-between">
-          <div className="font-bold text-white">다른 연도대</div>
-          <button
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-slate-200/90 hover:text-white hover:bg-white/10"
-            aria-label="닫기"
-            title="닫기"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="mt-4 text-xs text-slate-300/80">선택한 연도대의 콘텐츠를 미리 볼 수 있습니다.</div>
-
-        <div
-          ref={listRef}
-          className="mt-4 max-h-[50vh] overflow-y-auto rounded-xl border border-purple-800/25 bg-slate-950/20"
-        >
-          <ul className="divide-y divide-purple-900/25">
-            {options.map((ck) => {
-              const isMine = !!myCohort && ck === myCohort;
-              const isSel = ck === value;
-              return (
-                <li key={ck}>
-                  <button
-                    type="button"
-                    ref={(node) => {
-                      if (isSel) selectedRef.current = node;
-                    }}
-                    onClick={() => {
-                      onPick(ck);
-                      onClose();
-                    }}
-                    className={[
-                      "w-full px-4 py-3 text-left flex items-center justify-between",
-                      "hover:bg-white/5 transition",
-                      isSel ? "bg-purple-700/20" : "",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={[
-                          "text-sm",
-                          isSel ? "text-white font-semibold" : "text-purple-100/90",
-                        ].join(" ")}
-                      >
-                        {ck}
-                      </div>
-                      {isMine ? (
-                        <span className="text-[10px] rounded-md px-2 py-0.5 border border-purple-500/30 bg-purple-700/15 text-purple-100/90">
-                          내 연도대
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="text-sm">{isSel ? <span className="text-emerald-200">✓</span> : <span className="text-slate-500"> </span>}</div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-
-        <div className="pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-xl border border-purple-500/30 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
-          >
-            닫기
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function ContentPage() {
   const router = useRouter();
@@ -1237,6 +999,8 @@ export default function ContentPage() {
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState(DEFAULT_REMINDER_TIME);
   const [cohortPickerOpen, setCohortPickerOpen] = useState(false);
+  const [docOpen, setDocOpen] = useState(false);
+  const [docTab, setDocTab] = useState<DocTab>("service");
 
   const cohortKey = useMemo(() => {
     if (birthYear === null) return null;
@@ -1756,14 +1520,31 @@ export default function ContentPage() {
         time={reminderTime}
         onChangeEnabled={setReminderEnabled}
         onChangeTime={(v) => setReminderTime(v)}
+        onOpenDoc={(tab) => {
+          setDocTab(tab);
+          setDocOpen(true);
+        }}
+      />
+      <ServiceDocModal
+        open={docOpen}
+        tab={docTab}
+        onClose={() => setDocOpen(false)}
       />
       <CohortPickerModal
         open={cohortPickerOpen}
         onClose={() => setCohortPickerOpen(false)}
-        options={cohortOptions}
-        value={activeCohort ?? ""}
-        myCohort={cohortKey}
-        onPick={(v) => setViewCohortKey(v)}
+        cohorts={cohortOptions.map((key) => ({
+          key,
+          label: key,
+          description:
+            key === "common"
+              ? "기본 코호트(공통)"
+              : key === cohortKey
+              ? "내 코호트"
+              : undefined,
+        }))}
+        activeCohort={activeCohort ?? "common"}
+        onSelect={(cohortKey) => setViewCohortKey(cohortKey)}
       />
       <ReadCelebrationOverlay open={celebrateOpen} onClose={() => setCelebrateOpen(false)} />
       <AdSlot
@@ -1776,4 +1557,4 @@ export default function ContentPage() {
       />
     </div>
   );
-  }
+}
