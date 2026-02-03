@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import type { UpsertAdminContentRequest } from "@/app/lib/api-types";
-import {
-  deleteAdminContent,
-  getAdminContent,
-  listAdminContentDates,
-  listAdminContentsPaged,
-  upsertAdminContent,
-} from "@/app/lib/admin-store.server";
+import { getAdminContent, listAdminContentDates, listAdminContentsPaged } from "@/app/lib/admin-store.server";
+export const runtime = "nodejs";
 import { getDb } from "@/app/lib/firebase.server";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -252,43 +247,61 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid content" }, { status: 400 });
   }
 
-  const saved = await upsertAdminContent(
-    body.date,
-    body.cohort,
-    normalizedContent,
-    body.category ?? null,
-    body.priority ?? null
-  );
-
-  // Dual-write to Firestore so user-facing API can read from the server source of truth.
+  // Firestore is the source of truth in production (Vercel is read-only FS).
   try {
     const db = getDb();
-    await db
-      .collection("dailyContents")
-      .doc(docId(body.date, body.cohort))
-      .set(
-        {
-          date: body.date,
-          cohort: body.cohort,
-          status: (saved as any)?.status ?? "published",
-          category: body.category ?? null,
-          priority: body.priority ?? null,
-          // Store in the v2-friendly shape
+    const ref = db.collection("dailyContents").doc(docId(body.date, body.cohort));
+
+    await ref.set(
+      {
+        date: body.date,
+        cohort: body.cohort,
+        status: "published",
+        category: body.category ?? null,
+        priority: body.priority ?? null,
+        // Store in the v2-friendly shape
+        title: normalizedContent.title ?? null,
+        sections: normalizedContent.sections ?? { past: "", change: "", detail: "" },
+        content: {
           title: normalizedContent.title ?? null,
           sections: normalizedContent.sections ?? { past: "", change: "", detail: "" },
-          content: {
-            title: normalizedContent.title ?? null,
-            sections: normalizedContent.sections ?? { past: "", change: "", detail: "" },
-          },
-          updatedAt: FieldValue.serverTimestamp(),
         },
-        { merge: true }
-      );
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Read back once so the admin UI gets a consistent payload (incl. timestamp).
+    const snap = await ref.get();
+    const d = snap.data() as any;
+
+    const data = {
+      date: body.date,
+      cohort: body.cohort,
+      category: d?.category ?? null,
+      priority: d?.priority ?? null,
+      status: d?.status ?? "published",
+      content:
+        d?.content ?? {
+          title: d?.title ?? null,
+          sections: d?.sections ?? { past: "", change: "", detail: "" },
+        },
+      updatedAt:
+        typeof d?.updatedAt === "string"
+          ? d.updatedAt
+          : d?.updatedAt?.toDate
+            ? d.updatedAt.toDate().toISOString()
+            : null,
+    };
+
+    return NextResponse.json({ ok: true, data });
   } catch (e) {
     console.error("[admin contents] firestore write failed", e);
+    return NextResponse.json(
+      { ok: false, source: "firestore", error: "Firestore write failed" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: true, data: saved });
 }
 
 export async function DELETE(req: Request) {
@@ -303,15 +316,18 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Missing cohort" }, { status: 400 });
   }
 
-  const ok = await deleteAdminContent(date, cohort);
-
-  // Best-effort delete in Firestore
   try {
     const db = getDb();
-    await db.collection("dailyContents").doc(docId(date, cohort)).delete();
+    const ref = db.collection("dailyContents").doc(docId(date, cohort));
+    const snap = await ref.get();
+    const existed = snap.exists;
+    await ref.delete();
+    return NextResponse.json({ ok: true, deleted: existed });
   } catch (e) {
     console.error("[admin contents] firestore delete failed", e);
+    return NextResponse.json(
+      { ok: false, source: "firestore", error: "Firestore delete failed" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: true, deleted: ok });
 }
