@@ -37,7 +37,9 @@ function normalizePayload(input: any): ContentPayload {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const date = url.searchParams.get("date") ?? "";
-  const cohort = url.searchParams.get("cohort") ?? "";
+  const cohortRaw = url.searchParams.get("cohort") ?? "";
+  const cohort = cohortRaw.trim().toLowerCase();
+  const cohortTrimmed = cohortRaw.trim();
 
   if (!isYMD(date)) {
     return NextResponse.json({ ok: false, error: "Invalid date" }, { status: 400 });
@@ -50,7 +52,11 @@ export async function GET(req: Request) {
   let resolved: any = null;
   try {
     const db = getDb();
-    const snap = await db.collection("dailyContents").doc(docId(date, cohort)).get();
+    let snap = await db.collection("dailyContents").doc(docId(date, cohort)).get();
+
+    if (!snap.exists && cohortTrimmed && cohortTrimmed !== cohort) {
+      snap = await db.collection("dailyContents").doc(docId(date, cohortTrimmed)).get();
+    }
 
     if (snap.exists) {
       const d = snap.data() as any;
@@ -59,12 +65,13 @@ export async function GET(req: Request) {
         category: d.category ?? null,
         priority: d.priority ?? null,
         status: d.status ?? "published",
-        // accept either {title, sections:{...}, sources?} or flattened fields
-        content: d.content ?? {
-          title: d.title,
-          sections: d.sections ?? { past: d.past ?? "", change: d.change ?? "", detail: d.detail ?? "" },
-          ...(Array.isArray(d.sources) ? { sources: d.sources } : {}),
-        },
+        content:
+          d.content ??
+          ({
+            title: d.title,
+            sections: d.sections ?? { past: d.past ?? "", change: d.change ?? "", detail: d.detail ?? "" },
+            ...(Array.isArray(d.sources) ? { sources: d.sources } : {}),
+          } as any),
         updatedAt:
           typeof d.updatedAt === "string"
             ? d.updatedAt
