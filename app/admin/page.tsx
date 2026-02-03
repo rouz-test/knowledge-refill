@@ -36,8 +36,6 @@ function ymdTodayKST() {
 
 const COHORT_OPTIONS = ["common", "1960s", "1970s", "1980s", "1990s", "2000s", "2010s"] as const;
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default function AdminPage() {
   const router = useRouter();
