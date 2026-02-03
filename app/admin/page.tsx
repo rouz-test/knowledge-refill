@@ -1,7 +1,7 @@
 /* eslint-disable react/jsx-key */
 "use client";
 
-import { useEffect, useMemo, useRef, useState, Fragment } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type AdminContent = {
@@ -38,6 +38,16 @@ const COHORT_OPTIONS = ["common", "1960s", "1970s", "1980s", "1990s", "2000s", "
 
 
 export default function AdminPage() {
+  return (
+    <Suspense
+      fallback={<div style={{ maxWidth: 1400, margin: "0 auto", padding: 24 }}>불러오는 중…</div>}
+    >
+      <AdminPageInner />
+    </Suspense>
+  );
+}
+
+function AdminPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -419,56 +429,192 @@ export default function AdminPage() {
 
   return (
     <main style={{ maxWidth: 1400, margin: "0 auto", padding: 24 }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>관리자 콘텐츠</h1>
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+            URL 파라미터(view/date/cohort) 기반으로 목록/생성/편집을 전환합니다.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            onClick={goList}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
+          >
+            목록
+          </button>
+          <button
+            type="button"
+            onClick={goNew}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #222", background: "#222", color: "#fff" }}
+          >
+            새로 만들기
+          </button>
+          <a
+            href={previewUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #ddd",
+              background: "#fff",
+              textDecoration: "none",
+              color: "#111",
+              display: "inline-flex",
+              alignItems: "center",
+            }}
+          >
+            미리보기
+          </a>
+        </div>
+      </header>
+
+      {status ? (
+        <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "#f6f7f9", fontSize: 13 }}>
+          {status}
+        </div>
+      ) : null}
+
       {view === "list" ? (
-        <section>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <div>
-              <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>업로드된 콘텐츠</h1>
-              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>/api/admin/contents 목록을 테이블로 보여줍니다.</div>
+        <section style={{ marginTop: 18, display: "grid", gridTemplateColumns: "360px 1fr", gap: 18 }}>
+          {/* Left: calendar */}
+          <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <button
+                type="button"
+                onClick={() => moveCalendarMonth(-1)}
+                style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
+              >
+                ◀
+              </button>
+              <div style={{ fontWeight: 700 }}>
+                {calendarMonth.getFullYear()}년 {calendarMonth.getMonth() + 1}월
+              </div>
+              <button
+                type="button"
+                onClick={() => moveCalendarMonth(1)}
+                style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
+              >
+                ▶
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                resetFormToDefaults();
-                goNew();
+            <div
+              style={{
+                marginTop: 12,
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                gap: 6,
+                fontSize: 12,
               }}
-              style={{ marginLeft: "auto", padding: "10px 12px", borderRadius: 10, border: "1px solid #222", background: "#222", color: "#fff", fontSize: 13 }}
             >
-              게시물 작성
-            </button>
+              {(["일", "월", "화", "수", "목", "금", "토"] as const).map((d) => (
+                <div key={d} style={{ textAlign: "center", opacity: 0.65 }}>
+                  {d}
+                </div>
+              ))}
+              {calendarGrid.map((cell) => (
+                <button
+                  key={cell.ymd}
+                  type="button"
+                  onClick={() => goNewWithDate(cell.ymd)}
+                  title={cell.hasContent ? "해당 날짜에 콘텐츠가 있습니다" : "해당 날짜로 새 콘텐츠 작성"}
+                  style={{
+                    padding: "8px 0",
+                    borderRadius: 10,
+                    border: "1px solid #eee",
+                    background: cell.hasContent ? "#111" : cell.inMonth ? "#fff" : "#fafafa",
+                    color: cell.hasContent ? "#fff" : "#111",
+                    opacity: cell.inMonth ? 1 : 0.55,
+                    cursor: "pointer",
+                  }}
+                >
+                  {cell.ymd.slice(-2)}
+                </button>
+              ))}
+            </div>
 
-            <button
-              type="button"
-              onClick={refreshList}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", fontSize: 13 }}
-            >
-              {listLoading ? "불러오는 중…" : "새로고침"}
-            </button>
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+              검은 날짜 = 등록된 콘텐츠 있음 / 날짜 클릭 = 해당 날짜로 새 작성
+            </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, fontSize: 12, opacity: 0.85 }}>
-            <div>
-              총 <b>{totalCount}</b>개 · {page}/{totalPages}페이지
-            </div>
-
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.75 }}>행</span>
+          {/* Right: list */}
+          <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ fontWeight: 800 }}>목록</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <label style={{ fontSize: 12, opacity: 0.75 }}>페이지 크기</label>
                 <select
                   value={pageSize}
-                  onChange={(e) => {
-                    const v = Number(e.target.value) as 16 | 20;
-                    setPageSize(v);
-                    setPage(1);
-                  }}
-                  style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", fontSize: 12 }}
+                  onChange={(e) => setPageSize((e.target.value === "16" ? 16 : 20) as 16 | 20)}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
                 >
-                  <option value={16}>16</option>
                   <option value={20}>20</option>
+                  <option value={16}>16</option>
                 </select>
-              </label>
+                <button
+                  type="button"
+                  onClick={refreshList}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
+                >
+                  새로고침
+                </button>
+              </div>
+            </div>
 
+            {listError ? (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 12, background: "#fff3f3", color: "#b00020", fontSize: 12 }}>
+                {listError}
+              </div>
+            ) : null}
+
+            <div style={{ marginTop: 12, borderTop: "1px solid #f0f0f0" }}>
+              {listLoading ? (
+                <div style={{ padding: 14, fontSize: 13, opacity: 0.75 }}>불러오는 중…</div>
+              ) : listItems.length === 0 ? (
+                <div style={{ padding: 14, fontSize: 13, opacity: 0.75 }}>등록된 콘텐츠가 없습니다.</div>
+              ) : (
+                Object.entries(groupedByDate)
+                  .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+                  .map(([d, rows]) => (
+                    <div key={d} style={{ padding: "10px 0" }}>
+                      <div style={{ fontWeight: 800, marginBottom: 8 }}>{d}</div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {rows.map((it) => (
+                          <button
+                            key={`${it.date}:${it.cohort}`}
+                            type="button"
+                            onClick={() => goEdit(it.date, it.cohort)}
+                            style={{
+                              textAlign: "left",
+                              padding: 12,
+                              borderRadius: 12,
+                              border: "1px solid #eee",
+                              background: "#fff",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                              <div style={{ fontWeight: 700 }}>{it.title || "(제목 없음)"}</div>
+                              <div style={{ fontSize: 12, opacity: 0.7 }}>{it.cohort}</div>
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+                              {it.category || "콘텐츠"}
+                              {it.priority ? ` · ${it.priority}` : ""}
+                              {it.updatedAt ? ` · ${it.updatedAt}` : ""}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -478,14 +624,14 @@ export default function AdminPage() {
                   borderRadius: 10,
                   border: "1px solid #ddd",
                   background: "#fff",
-                  fontSize: 12,
                   opacity: page <= 1 ? 0.5 : 1,
-                  cursor: page <= 1 ? "default" : "pointer",
                 }}
               >
                 이전
               </button>
-
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                {page} / {totalPages}
+              </div>
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -495,385 +641,142 @@ export default function AdminPage() {
                   borderRadius: 10,
                   border: "1px solid #ddd",
                   background: "#fff",
-                  fontSize: 12,
                   opacity: page >= totalPages ? 0.5 : 1,
-                  cursor: page >= totalPages ? "default" : "pointer",
                 }}
               >
                 다음
               </button>
             </div>
           </div>
-
-          {listError ? <div style={{ fontSize: 12, color: "#b42318", marginBottom: 10, whiteSpace: "pre-wrap" }}>{listError}</div> : null}
-
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, alignItems: "start" }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ overflowX: "auto", border: "1px solid #eee", borderRadius: 12, background: "#fff" }}>
-                <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr style={{ textAlign: "left", fontSize: 12, opacity: 0.7, background: "#fafafa" }}>
-                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #eee" }}>날짜</th>
-                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #eee" }}>코호트</th>
-                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #eee" }}>제목</th>
-                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #eee" }}>배지1</th>
-                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #eee" }}>배지2</th>
-                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #eee" }}>업데이트</th>
-                      <th style={{ padding: "10px 12px", borderBottom: "1px solid #eee" }}>미리보기</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.keys(groupedByDate).length === 0 ? (
-                      <tr>
-                        <td colSpan={7} style={{ padding: 14, fontSize: 12, opacity: 0.7 }}>
-                          아직 업로드된 콘텐츠가 없습니다.
-                        </td>
-                      </tr>
-                    ) : (
-                      Object.entries(groupedByDate).map(([date, items]) => (
-                        <Fragment key={date}>
-                          <tr>
-                            <td
-                              colSpan={7}
-                              style={{
-                                padding: "12px 12px",
-                                background: "#fafafa",
-                                borderTop: "1px solid #eee",
-                              }}
-                            >
-                              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-                                <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.2px" }}>{date}</div>
-                                <div style={{ fontSize: 12, opacity: 0.75, whiteSpace: "nowrap" }}>({items.length}개)</div>
-                              </div>
-                            </td>
-                          </tr>
-                          {items.map((it) => {
-                            const key = `${it.date}:${it.cohort}`;
-                            return (
-                              <tr key={key} onClick={() => goEdit(it.date, it.cohort)} style={{ borderTop: "1px solid #eee", cursor: "pointer" }}>
-                                <td style={{ padding: "10px 12px", fontSize: 13 }}>{it.date}</td>
-                                <td style={{ padding: "10px 12px", fontSize: 13 }}>{it.cohort}</td>
-                                <td style={{ padding: "10px 12px", fontSize: 13 }}>{it.title ?? "(제목 없음)"}</td>
-                                <td style={{ padding: "10px 12px", fontSize: 13 }}>{it.category ?? "-"}</td>
-                                <td style={{ padding: "10px 12px", fontSize: 13 }}>
-                                  {it.priority === "high" ? "중요" : it.priority === "medium" ? "보통" : it.priority === "low" ? "참고" : "-"}
-                                </td>
-                                <td style={{ padding: "10px 12px", fontSize: 12, opacity: 0.8 }}>
-                                  {it.updatedAt ? new Date(it.updatedAt).toLocaleString() : "-"}
-                                </td>
-                                <td style={{ padding: "10px 12px" }}>
-                                  <a
-                                    href={`/content?${new URLSearchParams({ date: it.date, cohort: it.cohort, forceServer: "1" }).toString()}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{ fontSize: 12, textDecoration: "underline" }}
-                                  >
-                                    보기 ↗
-                                  </a>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </Fragment>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div style={{ position: "sticky", top: 16 }}>
-              <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, background: "#fff" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() => moveCalendarMonth(-1)}
-                    style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", fontSize: 12 }}
-                  >
-                    ‹
-                  </button>
-
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>
-                    {calendarMonth.getFullYear()}년 {calendarMonth.getMonth() + 1}월
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => moveCalendarMonth(1)}
-                    style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", fontSize: 12 }}
-                  >
-                    ›
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 8, fontSize: 11, opacity: 0.65 }}>
-                  {["일", "월", "화", "수", "목", "금", "토"].map((w) => (
-                    <div key={w} style={{ textAlign: "center" }}>
-                      {w}
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-                  {calendarGrid.map((cell) => {
-                    const dayNum = cell.date.getDate();
-                    // A) 콘텐츠 여부와 무관하게 클릭 가능하도록 disabled 조건 변경
-                    const disabled = !cell.inMonth;
-
-                    return (
-                      <button
-                        key={cell.ymd}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => {
-                          if (disabled) return;
-                          goNewWithDate(cell.ymd);
-                        }}
-                        // E) 툴팁(title) 변경
-                        title={
-                          cell.inMonth
-                            ? cell.hasContent
-                              ? "업로드된 콘텐츠가 있습니다. 클릭해서 작성 화면으로 이동"
-                              : "콘텐츠가 없습니다. 클릭해서 작성"
-                            : ""
-                        }
-                        // C) 스타일: 콘텐츠가 있는 날은 초록색 계열, border도 초록색 계열
-                        style={{
-                          height: 28,
-                          borderRadius: 10,
-                          background: !cell.inMonth
-                            ? "#fafafa"
-                            : cell.hasContent
-                            ? "#E7F7EE" // light green background for days with content
-                            : "#fff",
-                          border: cell.hasContent ? "1px solid #16A34A" : "1px solid #eee",
-                          color: !cell.inMonth ? "#999" : "#111",
-                          fontSize: 12,
-                          cursor: disabled ? "default" : "pointer",
-                          opacity: disabled ? 0.55 : 1,
-                          position: "relative",
-                        }}
-                      >
-                        {dayNum}
-                        {/* D) 점(span) 제거 */}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div style={{ marginTop: 10, fontSize: 11, opacity: 0.7, lineHeight: 1.4 }}>
-                  • 초록색으로 표시된 날짜는 업로드된 콘텐츠가 있는 날입니다.
-                  <br />
-                  • 날짜를 클릭하면 해당 날짜로 게시물을 작성할 수 있습니다. (기존 콘텐츠가 있으면 덮어쓰기 경고가 표시됩니다.)
-                </div>
-              </div>
-            </div>
-          </div>
-          
         </section>
       ) : (
-        <section>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{view === "new" ? "게시물 작성" : "게시물 편집"}</h1>
+        <section style={{ marginTop: 18, border: "1px solid #eee", borderRadius: 14, padding: 14 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <label style={{ fontSize: 12, opacity: 0.75 }}>날짜</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", width: 160 }}
+            />
 
-            <button
-              type="button"
-              onClick={goList}
-              style={{ marginLeft: "auto", padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", fontSize: 13 }}
+            <label style={{ fontSize: 12, opacity: 0.75 }}>코호트</label>
+            <select
+              value={cohort}
+              onChange={(e) => setCohort(e.target.value)}
+              style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
             >
-              목록으로
-            </button>
+              {cohortOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
 
-            <a href={previewUrl} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>
-              /content에서 미리보기 →
-            </a>
+            <label style={{ fontSize: 12, opacity: 0.75 }}>카테고리</label>
+            <input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", width: 160 }}
+            />
+
+            <label style={{ fontSize: 12, opacity: 0.75 }}>중요도</label>
+            <select
+              value={priority ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPriority(v === "" ? null : (v as any));
+              }}
+              style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+            >
+              <option value={""}>없음</option>
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
           </div>
 
-          {confirmOpen ? (
-            <div
-              role="dialog"
-              aria-modal="true"
-              style={{
-                position: "fixed",
-                inset: 0,
-                background: "rgba(0,0,0,0.35)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 16,
-                zIndex: 50,
-              }}
-              onClick={() => setConfirmOpen(false)}
-            >
-              <div
-                style={{
-                  width: "min(520px, 100%)",
-                  background: "#fff",
-                  borderRadius: 14,
-                  border: "1px solid #eee",
-                  padding: 16,
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>덮어쓰기 저장 확인</div>
-                <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
-                  {date} / {cohort} 조합의 콘텐츠가 이미 존재합니다.
-                  <br />
-                  그대로 저장하면 기존 콘텐츠가 덮어써집니다. 계속 진행할까요?
-                </div>
-
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmOpen(false)}
-                    style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", fontSize: 13 }}
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmOpen(false);
-                      confirmBypassRef.current = true;
-                      onSave();
-                    }}
-                    style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #222", background: "#222", color: "#fff", fontSize: 13 }}
-                  >
-                    덮어쓰기 저장
-                  </button>
-                </div>
+          {view === "new" && existsSameKey ? (
+            <div style={{ marginTop: 12, padding: 10, borderRadius: 12, background: "#fff7e6", fontSize: 12 }}>
+              동일한 날짜/코호트 콘텐츠가 이미 존재합니다. 저장하면 덮어쓸 수 있습니다.
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    confirmBypassRef.current = true;
+                    setConfirmOpen(false);
+                    onSave();
+                  }}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
+                >
+                  덮어쓰기 저장
+                </button>
               </div>
             </div>
           ) : null}
 
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="제목"
+              style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd" }}
+            />
 
-          <div style={{ display: "grid", gap: 12 }}>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.8 }}>날짜</span>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
-                />
-                <div style={{ fontSize: 11, opacity: 0.6 }}>KST 기준으로 저장됩니다.</div>
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.8 }}>코호트</span>
-                <select
-                  value={cohort}
-                  onChange={(e) => setCohort(e.target.value)}
-                  style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
-                >
-                  {cohortOptions.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>오타 방지를 위해 목록에서 선택합니다.</div>
-              </label>
-            </div>
-
-            {existsSameKey && view === "new" ? (
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 12,
-                  color: "#b42318",
-                  lineHeight: 1.4,
-                }}
-              >
-                ⚠ 이미 해당 날짜와 코호트로 작성된 콘텐츠가 있습니다.
-                <br />
-                저장 시 기존 콘텐츠가 덮어써질 수 있습니다.
-              </div>
-            ) : null}
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>제목 (선택)</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }} />
-            </label>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.8 }}>배지 1</span>
-                <input
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.8 }}>배지 2</span>
-                <select
-                  value={priority ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setPriority(v === "" ? null : (v as any));
-                  }}
-                  style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
-                >
-                  <option value="">선택 안 함</option>
-                  <option value="high">중요</option>
-                  <option value="medium">보통</option>
-                  <option value="low">참고</option>
-                </select>
-              </label>
-            </div>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>과거에는 이렇게 알려져 있던 내용</span>
-              <textarea
-                value={past}
-                onChange={(e) => setPast(e.target.value)}
-                rows={5}
-                style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", resize: "vertical" }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>그리고 이렇게 변경되었어</span>
-              <textarea
-                value={change}
-                onChange={(e) => setChange(e.target.value)}
-                rows={4}
-                style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", resize: "vertical" }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>자세한 설명</span>
-              <textarea
-                value={detail}
-                onChange={(e) => setDetail(e.target.value)}
-                rows={9}
-                style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd", resize: "vertical" }}
-              />
-            </label>
-
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button
-                onClick={onSave}
-                style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #222", background: "#222", color: "#fff" }}
-              >
-                저장
-              </button>
-              <button onClick={onDelete} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}>
-                삭제
-              </button>
-
-              {status ? <div style={{ marginLeft: "auto", fontSize: 13, opacity: 0.9 }}>{status}</div> : <div style={{ marginLeft: "auto" }} />}
-            </div>
-
+            <textarea
+              value={past}
+              onChange={(e) => setPast(e.target.value)}
+              placeholder="과거에 알려진 사실"
+              rows={4}
+              style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd", resize: "vertical" }}
+            />
+            <textarea
+              value={change}
+              onChange={(e) => setChange(e.target.value)}
+              placeholder="변경된 사실"
+              rows={4}
+              style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd", resize: "vertical" }}
+            />
+            <textarea
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              placeholder="자세한 설명"
+              rows={8}
+              style={{ padding: 12, borderRadius: 12, border: "1px solid #ddd", resize: "vertical" }}
+            />
           </div>
 
+          <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={onSave}
+              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #222", background: "#222", color: "#fff" }}
+            >
+              저장
+            </button>
+
+            {view === "edit" ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
+              >
+                삭제
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={goList}
+              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#fff" }}
+            >
+              취소
+            </button>
+          </div>
+
+          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+            선택 키: {selectedKey || "(없음)"}
+          </div>
         </section>
       )}
     </main>

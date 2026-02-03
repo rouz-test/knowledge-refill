@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { birthYearToCohort, pickTodayContent } from "../lib/content";
 import type { AdminContent, Cohort } from "../data/adminContents";
@@ -979,6 +979,20 @@ function WeeklyCalendar(props: {
 
 
 export default function ContentPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-3">
+          <p className="text-purple-200/80">불러오는 중…</p>
+        </main>
+      }
+    >
+      <ContentPageInner />
+    </Suspense>
+  );
+}
+
+function ContentPageInner() {
   const router = useRouter();
   const [birthYear, setBirthYear] = useState<number | null>(null);
   const [isFading, setIsFading] = useState<boolean>(false);

@@ -1,9 +1,19 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 
 export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={<div style={{ maxWidth: 520, margin: "0 auto", padding: 24 }}>불러오는 중…</div>}
+    >
+      <AdminLoginInner />
+    </Suspense>
+  );
+}
+
+function AdminLoginInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const next = sp.get("next") || "/admin";
@@ -11,7 +21,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<string>("");
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setStatus("로그인 중...");
 
