@@ -699,9 +699,9 @@ function ReadCelebrationOverlay({ open, onClose }: { open: boolean; onClose: () 
       <div className="celebrateCard relative pointer-events-none w-full max-w-[420px] rounded-3xl border border-purple-500/25 bg-gradient-to-b from-slate-900/95 to-slate-950/90 p-6 text-center shadow-2xl shadow-black/40 ring-1 ring-white/5">
         {/* Only text and pop animation, no rings */}
         <div className="text-3xl">🎉</div>
-        <div className="mt-2 text-lg font-extrabold text-white">읽음 처리 완료!</div>
+        <div className="mt-2 text-lg font-extrabold text-white">지식 한 조각이 쌓였어요!</div>
         <div className="mt-1 text-sm text-purple-200/80">
-          오늘의 한 줄을 챙기셨네요. 내일도 이어가보세요.
+          오늘의 한 조각을 챙기셨네요. 내일도 이어가보세요.
         </div>
       </div>
 
