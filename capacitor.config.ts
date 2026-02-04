@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
 
   // ✅ Load the web app from a remote URL (e.g., Vercel) instead of bundling web assets
   server: {
-    url: 'https://knowledge-refill.vercel.app/',
+    url: 'https://knowledge-refill.vercel.app',
     cleartext: false,
   },
 

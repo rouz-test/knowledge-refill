@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Safe area support for mobile (Android status bar / iOS notch) */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
