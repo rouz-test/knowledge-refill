@@ -18,7 +18,7 @@ export default function BirthYearWheelPicker({
   const years = useMemo(() => {
     return Array.from(
       { length: currentYear - startYear + 1 },
-      (_, i) => currentYear - i
+      (_, i) => startYear + i
     );
   }, [currentYear, startYear]);
 

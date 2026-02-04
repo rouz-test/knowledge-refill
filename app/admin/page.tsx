@@ -345,12 +345,17 @@ function AdminPageInner() {
     try {
       // reset bypass once we enter the real save path
       confirmBypassRef.current = false;
+      const cohortNorm = (cohort ?? "")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .replace(/\u00A0/g, " ")
+        .trim()
+        .toLowerCase();
       const res = await fetch("/api/admin/contents", {
         method: "POST",
         headers: jsonHeaders,
         body: JSON.stringify({
           date,
-          cohort,
+          cohort: cohortNorm,
           category: category.trim() || null,
           priority,
           content: {

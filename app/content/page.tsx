@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { birthYearToCohort, pickTodayContent } from "../lib/content";
 import type { AdminContent, Cohort } from "../data/adminContents";
@@ -271,23 +271,27 @@ function writeBundle(b: DailyBundle) {
 }
 
 // Prefer server API when available (admin-managed content), fall back to local picker.
-async function fetchDailyFromApi(date: string, cohort: string): Promise<{
+async function fetchDailyFromApi(
+  date: string,
+  cohort: string
+): Promise<{
   content: AdminContent | null;
   resolvedFrom: string | null;
 } | null> {
-  try {
-    const qs = new URLSearchParams({ date, cohort });
+  const doFetch = async (cohortParam: string) => {
+    const qs = new URLSearchParams({ date, cohort: cohortParam });
     const res = await fetch(`/api/content/daily?${qs.toString()}`, {
       method: "GET",
-      headers: { "accept": "application/json" },
+      headers: { accept: "application/json" },
       cache: "no-store",
     });
-    // If the API uses 404 to mean “no content for this date/cohort”,
-    // treat it as a valid empty response (so we show EmptyState, not local fallback).
+
+    // If the API uses 404 to mean “no content for this date/cohort”, treat it as a valid empty response.
     if (res.status === 404) {
-      return { content: null, resolvedFrom: null };
+      return { content: null as AdminContent | null, resolvedFrom: null as string | null };
     }
     if (!res.ok) return null;
+
     const data = (await res.json()) as any;
     const payload = data?.ok === true ? data.data : null;
 
@@ -305,6 +309,20 @@ async function fetchDailyFromApi(date: string, cohort: string): Promise<{
       content: c,
       resolvedFrom: (payload?.resolvedFrom ?? null) as string | null,
     };
+  };
+
+  try {
+    // 1) Try cohort-specific first.
+    const primary = await doFetch(cohort);
+    if (!primary) return null;
+
+    // 2) If empty and not already `common`, fall back to common.
+    if (!primary.content && cohort !== "common") {
+      const common = await doFetch("common");
+      return common ?? primary;
+    }
+
+    return primary;
   } catch {
     return null;
   }
@@ -746,9 +764,10 @@ function WeeklyCalendar(props: {
   const ignoreCommitRef = useRef(false);
   const ignoreTimerRef = useRef<any>(null);
 
-  // Keep selected day centered when selection changes
-  useEffect(() => {
-    if (!selectedBtnRef.current) return;
+  const centerSelected = (behaviorOverride?: ScrollBehavior) => {
+    const btn = selectedBtnRef.current;
+    const el = scrollerRef.current;
+    if (!btn || !el) return;
 
     // Programmatic scroll can trigger the scroll-commit logic on wide viewports.
     // Briefly ignore commit while we center the selected item.
@@ -759,14 +778,18 @@ function WeeklyCalendar(props: {
     }, 260);
 
     try {
-      const el = scrollerRef.current;
-      // Smooth scrolling on wide/desktop can keep firing scroll events longer, which may re-trigger commit.
-      // Use smooth only on narrower viewports.
-      const behavior: ScrollBehavior = el && el.clientWidth >= 560 ? "auto" : "smooth";
-      selectedBtnRef.current.scrollIntoView({ behavior, inline: "center", block: "nearest" });
+      // Prefer auto on wider viewports to avoid long smooth-scroll event spam.
+      const behavior: ScrollBehavior =
+        behaviorOverride ?? (el.clientWidth >= 560 ? "auto" : "smooth");
+      btn.scrollIntoView({ behavior, inline: "center", block: "nearest" });
     } catch {
       // ignore
     }
+  };
+
+  // Keep selected day centered when selection changes (layout-safe: prevents initial misalignment on mobile)
+  useLayoutEffect(() => {
+    centerSelected();
 
     return () => {
       if (ignoreTimerRef.current) {
@@ -785,12 +808,14 @@ function WeeklyCalendar(props: {
     const ITEM_W = 48; // w-12
 
     const apply = () => {
-      // Left padding keeps early items centerable.
-      // Right padding is intentionally minimal so the last item (today+3) sticks to the right edge
-      // and users can't scroll into a large empty gap.
-      const padLeft = Math.max(0, Math.floor(el.clientWidth / 2 - ITEM_W / 2));
-      el.style.paddingLeft = `${padLeft}px`;
-      el.style.paddingRight = `0px`;
+      // Side padding allows both first/last items to be centered.
+      const sidePad = Math.max(0, Math.floor(el.clientWidth / 2 - ITEM_W / 2));
+      el.style.paddingLeft = `${sidePad}px`;
+      el.style.paddingRight = `${sidePad}px`;
+
+      // After padding changes, re-center the selected item.
+      // Use auto to avoid long smooth-scroll chains during resize/orientation changes.
+      requestAnimationFrame(() => centerSelected("auto"));
     };
 
     apply();
@@ -1015,6 +1040,63 @@ function ContentPageInner() {
   const [cohortPickerOpen, setCohortPickerOpen] = useState(false);
   const [docOpen, setDocOpen] = useState(false);
   const [docTab, setDocTab] = useState<DocTab>("service");
+  // Header auto-hide: hide on scroll down, show on scroll up
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const tickingRef = useRef(false);
+  const lastToggleYRef = useRef(0);
+  const lockUntilRef = useRef(0);
+  const transitionUntilRef = useRef(0);
+  // --- Keep headerHiddenRef in sync to avoid stale closure in scroll handler
+  const headerHiddenRef = useRef(false);
+  useEffect(() => {
+    headerHiddenRef.current = headerHidden;
+    // Keep a small safety window; primary lock is applied immediately in the scroll handler.
+    transitionUntilRef.current = Math.max(transitionUntilRef.current, Date.now() + 120);
+  }, [headerHidden]);
+  useEffect(() => {
+    // Simple rule: hide calendar when scrolled into content, show only near top.
+    const SHOW_AT_Y = 0;
+    const HIDE_AT_Y = 100;
+
+    const onScroll = () => {
+      if (tickingRef.current) return;
+      tickingRef.current = true;
+
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+
+        // Decide desired visibility based on absolute scroll position.
+        // - Show calendar only when we're near the top.
+        // - Hide once we've clearly moved into the body.
+        const hidden = headerHiddenRef.current;
+
+        if (y <= SHOW_AT_Y) {
+          if (hidden) {
+            headerHiddenRef.current = false;
+            setHeaderHidden(false);
+          }
+        } else if (y >= HIDE_AT_Y) {
+          if (!hidden) {
+            headerHiddenRef.current = true;
+            setHeaderHidden(true);
+          }
+        }
+
+        tickingRef.current = false;
+      });
+    };
+
+    // Initialize on mount
+    try {
+      onScroll();
+    } catch {
+      // ignore
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const cohortKey = useMemo(() => {
     if (birthYear === null) return null;
@@ -1351,10 +1433,11 @@ function ContentPageInner() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Sticky Header */}
+      {/* Sticky Header (2-row: top stays, calendar auto-hides) */}
       <div className="sticky top-0 z-10 border-b border-purple-800/30 bg-gradient-to-b from-purple-900/60 to-purple-950/80 backdrop-blur">
-        <div className="max-w-3xl mx-auto px-5 py-5">
-          <div className="flex items-start justify-between gap-4">
+        <div className="max-w-3xl mx-auto px-5 pt-5">
+          {/* Top row: always visible */}
+          <div className="flex items-start justify-between gap-4 pb-4">
             <div>
               <div className="text-purple-200 text-sm">오늘의 지식조각</div>
               <div className="mt-1 text-purple-300 text-xs">{selectedDate}</div>
@@ -1374,37 +1457,37 @@ function ContentPageInner() {
                 aria-label="설정 열기"
                 title={reminderEnabled ? `설정 · 리마인드 ${reminderTime}` : "설정 · 리마인드 꺼짐"}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="size-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                  />
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                 </svg>
 
               </button>
             </div>
           </div>
 
-          {/* ✅ 캘린더 (슬라이더 7칸) */}
-          <WeeklyCalendar
-            days={days}
-            selectedDate={selectedDate}
-            todayYMD={todayYMD}
-            isReadSelected={isRead}
-            dayReadMap={weekReadMap}
-            onSelectDate={(ymd) => {
-              setIsFading(true);
-              setSelectedDate(ymd);
-            }}
-          />
+          {/* Calendar row: auto-hide on scroll (collapses layout) */}
+          <div
+            className={[
+              "overflow-hidden",
+              "transition-[max-height,opacity,padding] duration-200 ease-out",
+              headerHidden ? "max-h-0 opacity-0 pb-0" : "max-h-[220px] opacity-100 pb-5",
+            ].join(" ")}
+            aria-hidden={headerHidden}
+          >
+            {/* ✅ 캘린더 (슬라이더 7칸) */}
+            <WeeklyCalendar
+              days={days}
+              selectedDate={selectedDate}
+              todayYMD={todayYMD}
+              isReadSelected={isRead}
+              dayReadMap={weekReadMap}
+              onSelectDate={(ymd) => {
+                setIsFading(true);
+                setSelectedDate(ymd);
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -1509,7 +1592,7 @@ function ContentPageInner() {
                 disabled={!activeCohort}
                 className={[
                   "rounded-lg px-2 py-1 text-xs",
-                  "bg-slate-900/40 border border-purple-800/40",
+                  "bg-slate-900/ border border-purple-800/40",
                   "w-[92px] sm:w-auto truncate",
                   "flex items-center justify-between gap-2",
                   !activeCohort ? "opacity-60 cursor-not-allowed" : "hover:bg-slate-900/55",

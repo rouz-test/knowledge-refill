@@ -21,8 +21,17 @@ export default function BirthYearPage() {
   };
 
   return (
-    <main style={{ minHeight: "100vh", background: "#0b0b10", color: "white", padding: 24 }}>
-      <div style={{ maxWidth: 420, margin: "0 auto" }}>
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#0b0b10",
+        color: "white",
+        padding: 24,
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
+      <div style={{ maxWidth: 420, margin: "0 auto", width: "100%" }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, textAlign: "center" }}>태어난 해를 선택해 주세요</h1>
         <p style={{ marginTop: 10, opacity: 0.75, textAlign: "center" }}>
           연령대에 맞춘 콘텐츠를 보여드립니다.
