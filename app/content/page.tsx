@@ -973,23 +973,44 @@ function WeeklyCalendar(props: {
                     {mmddShiftedKST(d)}
                   </div>
 
-                  {/* 상태 표시: 읽음 (✓)만 */}
-                  <div className="mt-1 flex justify-center">
-                    <span
-                      className={[
-                        "inline-flex items-center justify-center w-2.5 h-2.5 rounded-full",
-                        isFutureDay
-                          ? "bg-transparent"
-                          : dayIsRead
-                          ? isSelected
-                            ? "bg-emerald-200 text-emerald-950"
-                            : "bg-emerald-300 text-emerald-950"
-                          : "bg-transparent",
-                      ].join(" ")}
-                      title={isFutureDay ? "" : dayIsRead ? "읽음" : "미읽음"}
-                    >
-                      {isFutureDay ? "" : dayIsRead ? "✓" : ""}
-                    </span>
+                  {/* 상태 표시: 읽음 (✓) — SVG로 굵기 제어 */}
+                  <div className="mt-1 flex justify-center min-h-[14px]">
+                    {isFutureDay ? null : dayIsRead ? (
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className={isSelected ? "text-emerald-200" : "text-emerald-300"}
+                        aria-label="읽음"
+                      >
+                        <path
+                          d="M20 6L9 17L4 12"
+                          stroke="currentColor"
+                          strokeWidth="3.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : (
+                      // keep layout height stable
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="opacity-0"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M20 6L9 17L4 12"
+                          stroke="currentColor"
+                          strokeWidth="3.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
                   </div>
                 </button>
               );
@@ -1466,27 +1487,32 @@ function ContentPageInner() {
             </div>
           </div>
 
-          {/* Calendar row: auto-hide on scroll (collapses layout) */}
+          {/* Calendar row: auto-hide on scroll (fade/slide + collapse height) */}
           <div
             className={[
               "overflow-hidden",
-              "transition-[max-height,opacity,padding] duration-200 ease-out",
-              headerHidden ? "max-h-0 opacity-0 pb-0" : "max-h-[220px] opacity-100 pb-5",
+              // max-height collapses the layout gap; opacity/transform keeps the motion smooth
+              "transition-[max-height,opacity,transform] duration-180 ease-out will-change-transform",
+              headerHidden
+                ? "max-h-0 opacity-0 -translate-y-3 pointer-events-none"
+                : "max-h-[240px] opacity-100 translate-y-0",
             ].join(" ")}
             aria-hidden={headerHidden}
           >
-            {/* ✅ 캘린더 (슬라이더 7칸) */}
-            <WeeklyCalendar
-              days={days}
-              selectedDate={selectedDate}
-              todayYMD={todayYMD}
-              isReadSelected={isRead}
-              dayReadMap={weekReadMap}
-              onSelectDate={(ymd) => {
-                setIsFading(true);
-                setSelectedDate(ymd);
-              }}
-            />
+            <div className="pb-5">
+              {/* ✅ 캘린더 (슬라이더 7칸) */}
+              <WeeklyCalendar
+                days={days}
+                selectedDate={selectedDate}
+                todayYMD={todayYMD}
+                isReadSelected={isRead}
+                dayReadMap={weekReadMap}
+                onSelectDate={(ymd) => {
+                  setIsFading(true);
+                  setSelectedDate(ymd);
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
