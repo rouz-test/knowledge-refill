@@ -1085,7 +1085,7 @@ function ContentPageInner() {
       tickingRef.current = true;
 
       requestAnimationFrame(() => {
-        const y = window.scrollY;
+        const y = Math.max(0, window.scrollY);
 
         // Decide desired visibility based on absolute scroll position.
         // - Show calendar only when we're near the top.
@@ -1487,18 +1487,17 @@ function ContentPageInner() {
             </div>
           </div>
 
-          {/* Calendar row: auto-hide on scroll (fade/slide + collapse height) */}
-          <div
-            className={[
-              "overflow-hidden",
-              // max-height collapses the layout gap; opacity/transform keeps the motion smooth
-              "transition-[max-height,opacity,transform] duration-180 ease-out will-change-transform",
-              headerHidden
-                ? "max-h-0 opacity-0 -translate-y-3 pointer-events-none"
-                : "max-h-[240px] opacity-100 translate-y-0",
-            ].join(" ")}
-            aria-hidden={headerHidden}
-          >
+          {/* Calendar row: auto-hide on scroll (instant collapse to avoid mobile jank) */}
+            <div
+              className={[
+                "overflow-hidden",
+                "transition-none",
+                headerHidden
+                  ? "max-h-0 opacity-0 -translate-y-3 pointer-events-none"
+                  : "max-h-[240px] opacity-100 translate-y-0",
+              ].join(" ")}
+              aria-hidden={headerHidden}
+            >
             <div className="pb-5">
               {/* ✅ 캘린더 (슬라이더 7칸) */}
               <WeeklyCalendar
