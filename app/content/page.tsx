@@ -1057,7 +1057,7 @@ function ContentPageInner() {
   useEffect(() => {
     // Simple rule: hide calendar when scrolled into content, show only near top.
     const SHOW_AT_Y = 0;
-    const HIDE_AT_Y = 100;
+    const HIDE_AT_Y = 20;
 
     const onScroll = () => {
       if (tickingRef.current) return;
