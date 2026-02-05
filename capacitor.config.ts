@@ -13,7 +13,8 @@ const config: CapacitorConfig = {
 
   // Optional Android settings
   android: {
-    // You can keep this false since Vercel is https.
+    // @ts-expect-error: supported by runtime, missing in type defs
+    adjustMarginsForEdgeToEdge: 'force',
     allowMixedContent: false,
   },
 };

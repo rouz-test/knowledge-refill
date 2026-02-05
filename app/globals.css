@@ -25,13 +25,29 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Safe area support for mobile (Android status bar / iOS notch) */
+/* Safe area support for mobile (Android status bar / iOS notch)
+   - iOS Safari: env(safe-area-inset-*)
+   - Android (Capacitor WebView): native injects --safe-* at runtime
+*/
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
+html,
+body {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+/* Optional utility if you want to apply extra-safe padding only to a container */
 .safe-area {
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
