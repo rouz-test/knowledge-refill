@@ -36,13 +36,6 @@ body {
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
-html,
-body {
-  padding-top: var(--safe-top);
-  padding-bottom: var(--safe-bottom);
-  padding-left: var(--safe-left);
-  padding-right: var(--safe-right);
-}
 
 /* Optional utility if you want to apply extra-safe padding only to a container */
 .safe-area {
