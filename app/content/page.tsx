@@ -1455,7 +1455,10 @@ function ContentPageInner() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Sticky Header (2-row: top stays, calendar auto-hides) */}
-      <div className="sticky top-0 z-10 border-b border-purple-800/30 bg-gradient-to-b from-purple-900/60 to-purple-950/80 backdrop-blur pt-[var(--safe-top)]">
+      <div className="sticky top-0 z-10 border-b border-purple-800/30 backdrop-blur relative">
+        {/* Paint the header background into the safe-area region as well */}
+        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/60 to-purple-950/80" aria-hidden="true" />
+        <div className="relative pt-[calc(var(--safe-top)+16px)]">
         <div className="max-w-3xl mx-auto px-5 pt-5">
           {/* Top row: always visible */}
           <div className="flex items-start justify-between gap-4 pb-4">
@@ -1514,7 +1517,8 @@ function ContentPageInner() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+        </div>
 
       {/* Body */}
       <main className="max-w-3xl mx-auto px-5 py-6 pb-28">
@@ -1528,7 +1532,7 @@ function ContentPageInner() {
       </main>
 
       {/* Fixed Bottom Action */}
-      <div className="fixed bottom-[calc(var(--safe-bottom)+24px)] left-0 right-0 z-20 px-5">
+      <div className="fixed bottom-[calc(max(var(--safe-bottom),24px)+32px)] left-0 right-0 z-20 px-5">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-4">
           {/* LEFT */}
           <div className="justify-self-end mr-2">
