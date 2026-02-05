@@ -1458,7 +1458,7 @@ function ContentPageInner() {
       <div className="sticky top-0 z-10 border-b border-purple-800/30 backdrop-blur relative">
         {/* Paint the header background into the safe-area region as well */}
         <div className="absolute inset-0 bg-gradient-to-b from-purple-900/60 to-purple-950/80" aria-hidden="true" />
-        <div className="relative pt-[calc(var(--safe-top)+16px)]">
+        <div className="relative pt-[calc(var(--safe-top)+20px)]">
         <div className="max-w-3xl mx-auto px-5 pt-5">
           {/* Top row: always visible */}
           <div className="flex items-start justify-between gap-4 pb-4">
@@ -1521,7 +1521,7 @@ function ContentPageInner() {
         </div>
 
       {/* Body */}
-      <main className="max-w-3xl mx-auto px-5 py-6 pb-28">
+      <main className="max-w-3xl mx-auto px-5 py-6 pb-40">
         <div className={["transition-opacity duration-150", isFading ? "opacity-0" : "opacity-100"].join(" ")}>
         {displayContent && hasMeaningfulContent(displayContent) ? (
           <ContentView c={displayContent} />
@@ -1532,7 +1532,7 @@ function ContentPageInner() {
       </main>
 
       {/* Fixed Bottom Action */}
-      <div className="fixed bottom-[calc(max(var(--safe-bottom),24px)+32px)] left-0 right-0 z-20 px-5">
+      <div className="fixed bottom-[calc(max(var(--safe-bottom),24px)+40px)] left-0 right-0 z-20 px-5">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-4">
           {/* LEFT */}
           <div className="justify-self-end mr-2">
