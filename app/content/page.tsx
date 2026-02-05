@@ -162,9 +162,9 @@ const CONTENT_VERSION = 1;
 // ------------------- Bundle 구조 및 helpers -------------------
 
 const EMPTY_MESSAGES = [
-  "오늘은 변화가 잠시 쉬어가는 날입니다.",
-  "오늘은 새로 고칠 만큼의 이야기가 없었네요.",
-  "오늘은 업데이트할 만큼의 변화가 감지되지 않았어요.",
+  "오늘의 지식 조각을 고르는 중이에요. 잠시만 기다려주세요.",
+  "지식을 낋여오는 중입니다. 곧 따뜻하게 도착해요.",
+  "오늘의 한 조각을 정리하고 있어요. 금방 보여드릴게요.",
 ];
 
 type DailyBundle = {
@@ -592,7 +592,7 @@ function Badge({
       : tone === "blue"
       ? "bg-blue-100 text-blue-800 border-blue-200"
       : tone === "slate"
-      ? "bg-slate-200 text-slate-800 border-slate-300"
+      ? "bg-slate-800/60 text-slate-200 border-slate-600/50"
       : "bg-purple-900/50 text-purple-200 border-purple-700";
 
   return (
@@ -659,7 +659,7 @@ function ContentView({ c }: { c: AdminContent }) {
 
         return (
           <div className="space-y-5">
-            <section className="rounded-xl border border-purple-700/40 bg-gradient-to-br from-slate-900/55 to-slate-950/70 p-5">
+            <section className="rounded-xl border border-purple-700/40 bg-gradient-to-br from-purple-900/45 to-purple-950/75 p-5 shadow-lg shadow-purple-900/20">
               <div className="text-purple-200 text-sm font-bold mb-2">예전에는 이렇게 알려졌어요</div>
               <p className="text-[14px] leading-6 text-slate-200 whitespace-pre-wrap">{s.past || "(내용 없음)"}</p>
             </section>
@@ -669,7 +669,7 @@ function ContentView({ c }: { c: AdminContent }) {
               <p className="text-[14px] leading-6 text-purple-50 whitespace-pre-wrap">{s.change || "(내용 없음)"}</p>
             </section>
 
-            <section className="rounded-xl border border-purple-700/40 bg-gradient-to-br from-purple-900/45 to-purple-950/75 p-5 shadow-lg shadow-purple-900/20">
+            <section className="rounded-xl border border-purple-700/40 bg-gradient-to-br from-slate-900/55 to-slate-950/70 p-5">
               <div className="text-purple-200 text-sm font-bold mb-2">조금 더 자세히 살펴보면...</div>
               <p className="text-[14px] leading-6 text-purple-50 whitespace-pre-wrap">{s.detail || "(내용 없음)"}</p>
             </section>
@@ -949,7 +949,7 @@ function WeeklyCalendar(props: {
                     "snap-center shrink-0",
                     // 7개가 자연스럽게 보이도록 고정 폭
                     "w-12",
-                    "rounded-xl px-2 py-2 border text-center transition",
+                    "rounded-xl px-1 py-2 border text-center transition",
                     isFutureDay
                       ? "border-slate-800/40 bg-slate-950/20 text-slate-500 opacity-60 cursor-not-allowed"
                       : isSelected
@@ -965,7 +965,7 @@ function WeeklyCalendar(props: {
                   </div>
 
                   <div
-                    className={["mt-1 font-extrabold", isSelected ? "text-white" : "text-purple-50/85"].join(
+                    className={["mt-1 font-extrabold tabular-nums w-full text-center", isSelected ? "text-white" : "text-purple-50/85"].join(
                       " "
                     )}
                     style={{ fontSize: 13 }}
@@ -1068,6 +1068,18 @@ function ContentPageInner() {
   const lastToggleYRef = useRef(0);
   const lockUntilRef = useRef(0);
   const transitionUntilRef = useRef(0);
+  // --- Swipe navigation (prev/next day) ---
+  const swipeRef = useRef({
+    active: false,
+    startedOnInteractive: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    locked: false, // once we decide it's horizontal, lock to swipe mode
+  });
+  const SWIPE_MIN_X = 60; // px
+  const SWIPE_MAX_Y = 50; // px (tolerate small vertical movement)
   // --- Keep headerHiddenRef in sync to avoid stale closure in scroll handler
   const headerHiddenRef = useRef(false);
   useEffect(() => {
@@ -1437,6 +1449,103 @@ function ContentPageInner() {
 
   const isFutureSelected = selectedDate > todayYMD; // YYYY-MM-DD 문자열 비교는 안전
 
+  // --- Swipe prev/next day navigation helpers ---
+  const stepDay = (delta: number) => {
+    // delta: -1 => previous day, +1 => next day
+    const base = shiftedKSTFromYMD(selectedDate);
+    const next = addDaysShiftedKST(base, delta);
+    const nextYMD = ymdFromShiftedKST(next);
+
+    // Block future navigation (today 이후로는 금지)
+    if (nextYMD > todayYMD) return;
+
+    setIsFading(true);
+    setSelectedDate(nextYMD);
+
+    // When day changes via swipe, bring user back to top so header/calendar stay in sync and visible.
+    try {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    } catch {
+      // ignore
+    }
+  };
+
+  const onTouchStartMain = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+
+    const t = e.touches[0];
+    const target = e.target as HTMLElement | null;
+    const isInteractive = !!target?.closest(
+      "button,a,input,textarea,select,label,[role='button'],[data-no-swipe]"
+    );
+
+    swipeRef.current = {
+      active: true,
+      startedOnInteractive: isInteractive,
+      startX: t.clientX,
+      startY: t.clientY,
+      lastX: t.clientX,
+      lastY: t.clientY,
+      locked: false,
+    };
+  };
+
+  const onTouchMoveMain = (e: React.TouchEvent) => {
+    const s = swipeRef.current;
+    if (!s.active || s.startedOnInteractive) return;
+    if (e.touches.length !== 1) return;
+
+    const t = e.touches[0];
+    s.lastX = t.clientX;
+    s.lastY = t.clientY;
+
+    const dx = s.lastX - s.startX;
+    const dy = s.lastY - s.startY;
+
+    // If vertical intent is strong, cancel swipe handling.
+    if (!s.locked && Math.abs(dy) > Math.abs(dx) * 1.2 && Math.abs(dy) > 10) {
+      s.active = false;
+      return;
+    }
+
+    // If horizontal intent becomes clear, lock.
+    if (!s.locked && Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      s.locked = true;
+    }
+
+    // When locked to horizontal swipe, prevent page from treating it as scroll jitter.
+    if (s.locked) {
+      try {
+        e.preventDefault();
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const onTouchEndMain = () => {
+    const s = swipeRef.current;
+    if (!s.active || s.startedOnInteractive) {
+      swipeRef.current.active = false;
+      return;
+    }
+
+    const dx = s.lastX - s.startX;
+    const dy = s.lastY - s.startY;
+
+    swipeRef.current.active = false;
+
+    // Only trigger when the gesture is clearly horizontal.
+    if (Math.abs(dx) < SWIPE_MIN_X) return;
+    if (Math.abs(dy) > SWIPE_MAX_Y) return;
+    if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
+
+    // dx < 0 => swipe left => go to next day
+    // dx > 0 => swipe right => go to previous day
+    if (dx < 0) stepDay(+1);
+    else stepDay(-1);
+  };
+
   const readDisabled = isRead || isPreview || isFutureSelected || !readKey;
   const readTitle = isRead
     ? "읽음 처리됨"
@@ -1521,13 +1630,19 @@ function ContentPageInner() {
         </div>
 
       {/* Body */}
-      <main className="max-w-3xl mx-auto px-5 py-6 pb-40">
+      <main
+        className="max-w-3xl mx-auto px-5 py-6 pb-40 touch-pan-y"
+        onTouchStart={onTouchStartMain}
+        onTouchMove={onTouchMoveMain}
+        onTouchEnd={onTouchEndMain}
+        onTouchCancel={onTouchEndMain}
+      >
         <div className={["transition-opacity duration-150", isFading ? "opacity-0" : "opacity-100"].join(" ")}>
-        {displayContent && hasMeaningfulContent(displayContent) ? (
-          <ContentView c={displayContent} />
-        ) : (
-          <EmptyState message={emptyMessage} ymd={selectedDate} />
-        )}
+          {displayContent && hasMeaningfulContent(displayContent) ? (
+            <ContentView c={displayContent} />
+          ) : (
+            <EmptyState message={emptyMessage} ymd={selectedDate} />
+          )}
         </div>
       </main>
 
