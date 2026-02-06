@@ -209,7 +209,7 @@ export function SettingsModal(props: {
             <div>
               <div className="text-sm font-semibold text-purple-100">매일 리마인드</div>
               <div className="mt-1 text-[12px] text-slate-300/75">
-                지정한 시간에 오늘의 지식조각을 알려드려요.
+                지정한 시간에 오늘의 지식을 알려드려요.
               </div>
             </div>
 

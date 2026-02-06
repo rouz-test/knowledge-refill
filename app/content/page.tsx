@@ -10,6 +10,7 @@ import { getPromoForReadAction } from "../components/ad/providers/promo";
 import { SettingsModal } from "./_components/SettingsModal";
 import { ServiceDocModal, type DocTab } from "./_components/ServiceDocModal";
 import { CohortPickerModal } from "./_components/CohortPickerModal";
+import { useLocalReminder } from "./_hooks/useLocalReminder";
 
 // RingBurstButton: Visual ring burst for button celebration effect
 function RingBurstButton({ trigger }: { trigger: boolean }) {
@@ -162,9 +163,9 @@ const CONTENT_VERSION = 1;
 // ------------------- Bundle 구조 및 helpers -------------------
 
 const EMPTY_MESSAGES = [
-  "오늘의 지식 조각을 고르는 중이에요. 잠시만 기다려주세요.",
-  "지식을 낋여오는 중입니다. 곧 따뜻하게 도착해요.",
-  "오늘의 한 조각을 정리하고 있어요. 금방 보여드릴게요.",
+  "오늘의 조각을 고르는 중이에요.",
+  "지식을 낋여오는 중입니다.",
+  "오늘의 한 조각을 정리하고 있어요.",
 ];
 
 type DailyBundle = {
@@ -1057,6 +1058,7 @@ function ContentPageInner() {
   // Reminder settings (stored locally; laer used by native wrapper for local notifications)
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [isReadToday, setIsReadToday] = useState(false);
   const [reminderTime, setReminderTime] = useState(DEFAULT_REMINDER_TIME);
   const [cohortPickerOpen, setCohortPickerOpen] = useState(false);
   const [docOpen, setDocOpen] = useState(false);
@@ -1215,6 +1217,15 @@ function ContentPageInner() {
   const displayContent = forceEmptyUI ? null : content;
   const bundleContentId = bundle?.contentId ?? null;
 
+  useLocalReminder({
+    enabled: reminderEnabled,
+    timeHHmm: reminderTime,
+    isReadToday,
+    onOpenContent: () => {
+      // 알림을 탭하면 오늘 콘텐츠로 이동
+      router.push("/content");
+    },
+  });
   // birthYear 로드
   useEffect(() => {
     // ------------------- Reminder settings load -------------------
@@ -1427,6 +1438,26 @@ function ContentPageInner() {
   // ✅ 읽음 키는 bundle이 발급한 contentId를 그대로 사용합니다.
   // 프리뷰 모드에서는 읽음 저장/표시를 하지 않기 위해 null 처리합니다.
   const readKey = !isPreview && bundleContentId ? `read:${bundleContentId}` : null;
+
+  useEffect(() => {
+    if (!activeCohort || isPreview) {
+      setIsReadToday(false);
+      return;
+    }
+  
+    try {
+      const b = getOrCreateBundle(todayYMD, activeCohort);
+      const cid = b?.contentId;
+      if (!cid) {
+        setIsReadToday(false);
+        return;
+      }
+      const key = `read:${cid}`;
+      setIsReadToday(localStorage.getItem(key) === "1");
+    } catch {
+      setIsReadToday(false);
+    }
+  }, [activeCohort, isPreview, todayYMD, isRead]);
 
   useEffect(() => {
     if (!readKey) {
