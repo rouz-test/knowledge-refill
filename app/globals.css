@@ -35,8 +35,10 @@ body {
   --safe-right: 0px;
 }
 
-/* iOS Safari: apply real safe-area insets */
-@supports (padding: env(safe-area-inset-top)) {
+/* iOS(WebKit) only: apply real safe-area insets.
+   Android Chromium/WebView may also support env(), but we intentionally keep 0 there.
+*/
+@supports (-webkit-touch-callout: none) {
   :root {
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
