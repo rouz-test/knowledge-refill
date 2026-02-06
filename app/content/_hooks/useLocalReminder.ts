@@ -18,6 +18,7 @@ export function useLocalReminder(opts: {
   // 1) enabled/time 변경 시 스케줄 갱신
   useEffect(() => {
     if (!isNativePlatform()) return;
+    console.log("[reminder] native platform:", isNativePlatform());
 
     let cancelled = false;
 
@@ -29,6 +30,7 @@ export function useLocalReminder(opts: {
         }
 
         const perm = await ensureLocalNotificationPermission();
+        console.log("[reminder] permission:", perm);
         if (perm.display !== "granted") {
           // 권한 거부면 스케줄링 안 함 (기존 예약이 남아있지 않도록 취소)
           await cancelDailyReminder();
@@ -57,6 +59,9 @@ export function useLocalReminder(opts: {
           title: "오늘의 지식조각",
           body: "오늘의 한 조각, 꺼내볼까요?",
         });
+        const pending = await LocalNotifications.getPending();
+        console.log("[reminder] pending:", pending);
+        console.log("[reminder] next at:", next.toString());
       } catch {
         // ignore
       }
