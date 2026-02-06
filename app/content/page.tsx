@@ -1810,9 +1810,9 @@ function ContentPageInner() {
           label: key,
           description:
             key === "common"
-              ? "기본 코호트(공통)"
+              ? "기본 연도대(공통)"
               : key === cohortKey
-              ? "내 코호트"
+              ? "내 연도대"
               : undefined,
         }))}
         activeCohort={activeCohort ?? "common"}
