@@ -3,7 +3,7 @@ include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../node_modules/.pnpm/@capacitor+android@8.0.2_@capacitor+core@8.0.2/node_modules/@capacitor/android/capacitor')
 
 include ':capacitor-local-notifications'
-project(':capacitor-local-notifications').projectDir = new File('../node_modules/.pnpm/@capacitor+local-notifications@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/local-notifications/android')
+project(':capacitor-local-notifications').projectDir = new File('../node_modules/.pnpm/@capacitor+local-notifications@8.0.0_patch_hash=94ae16654bbd0747c7823b76f3d8b34776c4e3b_3e9f3e9654534afc9aaf5bd6266fb250/node_modules/@capacitor/local-notifications/android')
 
 include ':capacitor-status-bar'
-project(':capacitor-status-bar').projectDir = new File('../node_modules/.pnpm/@capacitor+status-bar@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/status-bar/android')
+project(':capacitor-status-bar').projectDir = new File('../node_modules/.pnpm/@capacitor+status-bar@8.0.0_patch_hash=50ab7516efcb2bf5c2d979577e1b2a62635c50bbefc980cf_bd71d05c76e8589358a65b5744defb3c/node_modules/@capacitor/status-bar/android')
