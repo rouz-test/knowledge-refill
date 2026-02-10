@@ -53,6 +53,7 @@ export async function scheduleReminderAt(opts: {
         body: opts.body ?? "오늘의 한 조각, 꺼내볼까요?",
         schedule: { at: opts.at },
         channelId: REMINDER_CHANNEL_ID,
+        smallIcon: "ic_stat_refill",
         extra: { deepLink: "/content" },
       },
     ],
@@ -82,6 +83,7 @@ export async function scheduleDailyReminder(opts: {
         schedule: { on: { hour, minute }, repeats: true },
         // Android 채널
         channelId: REMINDER_CHANNEL_ID,
+        smallIcon: "ic_stat_refill",
         // 탭했을 때 구분용(필요하면 확장)
         extra: { deepLink: "/content" },
       },

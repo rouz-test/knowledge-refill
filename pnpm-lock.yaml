@@ -4,6 +4,14 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@capacitor/local-notifications':
+    hash: 94ae16654bbd0747c7823b76f3d8b34776c4e3b9b3341c5d8ffa2b986b350e4d
+    path: patches/@capacitor__local-notifications.patch
+  '@capacitor/status-bar':
+    hash: 50ab7516efcb2bf5c2d979577e1b2a62635c50bbefc980cf72e8625781705943
+    path: patches/@capacitor__status-bar.patch
+
 importers:
 
   .:
@@ -16,10 +24,10 @@ importers:
         version: 8.0.2
       '@capacitor/local-notifications':
         specifier: ^8.0.0
-        version: 8.0.0(@capacitor/core@8.0.2)
+        version: 8.0.0(patch_hash=94ae16654bbd0747c7823b76f3d8b34776c4e3b9b3341c5d8ffa2b986b350e4d)(@capacitor/core@8.0.2)
       '@capacitor/status-bar':
         specifier: ^8.0.0
-        version: 8.0.0(@capacitor/core@8.0.2)
+        version: 8.0.0(patch_hash=50ab7516efcb2bf5c2d979577e1b2a62635c50bbefc980cf72e8625781705943)(@capacitor/core@8.0.2)
       firebase:
         specifier: ^12.8.0
         version: 12.8.0
@@ -2990,11 +2998,11 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@capacitor/local-notifications@8.0.0(@capacitor/core@8.0.2)':
+  '@capacitor/local-notifications@8.0.0(patch_hash=94ae16654bbd0747c7823b76f3d8b34776c4e3b9b3341c5d8ffa2b986b350e4d)(@capacitor/core@8.0.2)':
     dependencies:
       '@capacitor/core': 8.0.2
 
-  '@capacitor/status-bar@8.0.0(@capacitor/core@8.0.2)':
+  '@capacitor/status-bar@8.0.0(patch_hash=50ab7516efcb2bf5c2d979577e1b2a62635c50bbefc980cf72e8625781705943)(@capacitor/core@8.0.2)':
     dependencies:
       '@capacitor/core': 8.0.2
 

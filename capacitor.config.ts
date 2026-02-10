@@ -17,6 +17,16 @@ const config: CapacitorConfig = {
     adjustMarginsForEdgeToEdge: 'force',
     allowMixedContent: false,
   },
+
+  // Plugin settings
+  plugins: {
+    LocalNotifications: {
+      // Android status bar (small) notification icon (res/drawable/ic_stat_refill.*)
+      smallIcon: 'ic_stat_refill',
+      // Optional: tint color for the small icon (Android only)
+      // iconColor: '#2DD4BF',
+    },
+  },
 };
 
 export default config;

@@ -1,5 +1,10 @@
 packages:
   - .
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+
+patchedDependencies:
+  '@capacitor/local-notifications': patches/@capacitor__local-notifications.patch
+  '@capacitor/status-bar': patches/@capacitor__status-bar.patch
