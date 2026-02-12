@@ -109,7 +109,7 @@ export default function SplashPage() {
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: 18,
+          bottom: "calc(32px + env(safe-area-inset-bottom, 0px))",
           textAlign: "center",
           fontSize: 11,
           letterSpacing: 0.3,
