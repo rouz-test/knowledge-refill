@@ -101,7 +101,7 @@ export function SettingsModal(props: {
     const scrollTimer = React.useRef<number | null>(null);
 
     return (
-      <div className="relative">
+      <div className="relative min-w-0 flex-1">
         {/* top/bottom fade mask */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-8 rounded-t-xl bg-gradient-to-b from-slate-950/70 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 rounded-b-xl bg-gradient-to-t from-slate-950/70 to-transparent" />
@@ -114,7 +114,7 @@ export function SettingsModal(props: {
           aria-label={ariaLabel}
           aria-disabled={disabled ? true : undefined}
           className={
-            "h-[164px] w-[92px] overflow-hidden rounded-xl border bg-black/10 px-2 py-2 text-center [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden " +
+            "h-[164px] w-full min-w-0 overflow-hidden rounded-xl border bg-black/10 px-1.5 py-2 text-center [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden " +
             (disabled ? "border-white/10 opacity-50" : "border-purple-500/25 overflow-y-auto")
           }
           style={{
@@ -238,48 +238,54 @@ export function SettingsModal(props: {
           <div className="mt-4">
             <div className="text-xs font-semibold text-purple-200/90">알림 시간</div>
             <div className="mt-2">
-              <div className="flex items-center justify-between">
-                <div className="text-[12px] text-slate-300/70">
+              <div className="space-y-1.5">
+                <div className="text-[12px] leading-relaxed text-slate-300/70">
                   {enabled ? "휠을 스크롤해서 시간을 변경할 수 있어요." : "리마인드를 켜면 시간 변경이 가능합니다."}
                 </div>
-                <div className={"text-[12px] " + (enabled ? "text-purple-100" : "text-slate-400")}>
+                <div className={"text-[12px] leading-relaxed " + (enabled ? "text-purple-100" : "text-slate-400")}>
                   현재: {displayTimeLabel()}
                 </div>
               </div>
 
               <div className={"mt-3 rounded-xl border p-4 " + (enabled ? "border-purple-500/25 bg-white/5" : "border-white/10 bg-white/5")}
               >
-                <div className="flex items-center justify-center gap-3">
-                  <WheelColumn
-                    ariaLabel="오전/오후"
-                    items={ampmOptions}
-                    value={parsed.isPM ? "오후" : "오전"}
-                    disabled={!enabled}
-                    onChange={(v) => {
-                      const isPM = v === "오후";
-                      onChangeTime(toTime24(isPM, parsed.h12, parsed.mm));
-                    }}
-                  />
-                  <WheelColumn
-                    ariaLabel="시"
-                    items={hourOptions}
-                    value={clamp2(parsed.h12)}
-                    disabled={!enabled}
-                    onChange={(v) => {
-                      const h12 = Math.min(12, Math.max(1, Number(v)));
-                      onChangeTime(toTime24(parsed.isPM, h12, parsed.mm));
-                    }}
-                  />
-                  <WheelColumn
-                    ariaLabel="분"
-                    items={minuteOptions}
-                    value={clamp2(parsed.mm)}
-                    disabled={!enabled}
-                    onChange={(v) => {
-                      const mm = Math.min(59, Math.max(0, Number(v)));
-                      onChangeTime(toTime24(parsed.isPM, parsed.h12, mm));
-                    }}
-                  />
+                <div className="flex w-full items-center justify-center gap-2 overflow-hidden sm:gap-3">
+                  <div className="min-w-0 flex-[0.95]">
+                    <WheelColumn
+                      ariaLabel="오전/오후"
+                      items={ampmOptions}
+                      value={parsed.isPM ? "오후" : "오전"}
+                      disabled={!enabled}
+                      onChange={(v) => {
+                        const isPM = v === "오후";
+                        onChangeTime(toTime24(isPM, parsed.h12, parsed.mm));
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <WheelColumn
+                      ariaLabel="시"
+                      items={hourOptions}
+                      value={clamp2(parsed.h12)}
+                      disabled={!enabled}
+                      onChange={(v) => {
+                        const h12 = Math.min(12, Math.max(1, Number(v)));
+                        onChangeTime(toTime24(parsed.isPM, h12, parsed.mm));
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <WheelColumn
+                      ariaLabel="분"
+                      items={minuteOptions}
+                      value={clamp2(parsed.mm)}
+                      disabled={!enabled}
+                      onChange={(v) => {
+                        const mm = Math.min(59, Math.max(0, Number(v)));
+                        onChangeTime(toTime24(parsed.isPM, parsed.h12, mm));
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

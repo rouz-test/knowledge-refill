@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
     AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
     super.onCreate(savedInstanceState);
+    this.bridge.getWebView().getSettings().setTextZoom(100);
 
     int id = getResources().getIdentifier(
         "ic_stat_refill",
