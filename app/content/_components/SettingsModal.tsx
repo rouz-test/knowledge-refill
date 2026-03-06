@@ -228,8 +228,8 @@ export function SettingsModal(props: {
             >
               <span
                 className={
-                  "absolute top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-white/80 shadow transition " +
-                  (enabled ? "left-[34px]" : "left-[6px]")
+                  "absolute left-[4px] top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white/80 shadow transition-transform " +
+                  (enabled ? "translate-x-[28px]" : "translate-x-0")
                 }
               />
             </button>
